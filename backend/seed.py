@@ -1,0 +1,144 @@
+"""
+Seed the database with demo data and train ML models.
+Run: python seed.py
+"""
+import sys
+import os
+sys.path.insert(0, os.path.dirname(__file__))
+
+from dotenv import load_dotenv
+load_dotenv()
+
+from datetime import datetime, timedelta
+from models.database import init_db, SessionLocal, Guest, Room, Feedback, MaintenanceLog, Staff, InventoryItem
+from ai.pricing import train_pricing_model
+from ai.sentiment import analyze_sentiment
+
+def seed():
+    print("🌱 Initializing database...")
+    init_db()
+    db = SessionLocal()
+
+    # --- Rooms ---
+    if db.query(Room).count() == 0:
+        rooms = [
+            Room(room_number="101", type="Standard Room",  base_price=120, current_price=135, is_occupied=True),
+            Room(room_number="102", type="Standard Room",  base_price=120, current_price=120, is_occupied=False),
+            Room(room_number="201", type="Deluxe Suite",   base_price=220, current_price=265, is_occupied=True),
+            Room(room_number="202", type="Deluxe Suite",   base_price=220, current_price=220, is_occupied=False),
+            Room(room_number="301", type="Eco Cabin",      base_price=180, current_price=198, is_occupied=True),
+            Room(room_number="302", type="Eco Cabin",      base_price=180, current_price=180, is_occupied=True),
+            Room(room_number="401", type="Family Room",    base_price=160, current_price=185, is_occupied=False),
+            Room(room_number="402", type="Family Room",    base_price=160, current_price=160, is_occupied=True),
+        ]
+        db.add_all(rooms)
+        print("  ✅ Rooms seeded")
+
+    # --- Guests ---
+    if db.query(Guest).count() == 0:
+        guests = [
+            Guest(name="Abebe Girma",    email="abebe@example.com",   language="am", room_id=1,
+                  check_in=datetime.utcnow() - timedelta(days=2)),
+            Guest(name="Sara Johnson",   email="sara@example.com",    language="en", room_id=3,
+                  check_in=datetime.utcnow() - timedelta(days=1)),
+            Guest(name="Tigist Haile",   email="tigist@example.com",  language="am", room_id=5,
+                  check_in=datetime.utcnow()),
+            Guest(name="Michael Brown",  email="michael@example.com", language="en", room_id=6,
+                  check_in=datetime.utcnow() - timedelta(days=3)),
+        ]
+        db.add_all(guests)
+        print("  ✅ Guests seeded")
+
+    # --- Feedback ---
+    if db.query(Feedback).count() == 0:
+        messages = [
+            (1, "101", "The room is absolutely beautiful and the staff are so friendly!"),
+            (2, "201", "My AC unit is broken and it's very hot. This is unacceptable!"),
+            (3, "301", "The eco cabin experience was amazing. Loved the cultural show."),
+            (4, "302", "Room service was slow and the food was cold when it arrived."),
+            (1, "101", "Breakfast was wonderful, loved the injera and honey!"),
+            (2, "201", "Still no one came to fix the AC. Very disappointed."),
+        ]
+        for guest_id, room, msg in messages:
+            result = analyze_sentiment(msg)
+            fb = Feedback(
+                guest_id=guest_id,
+                room_number=room,
+                message=msg,
+                sentiment=result["sentiment"],
+                score=result["score"],
+                timestamp=datetime.utcnow() - timedelta(hours=len(messages))
+            )
+            db.add(fb)
+        print("  ✅ Feedback seeded")
+
+    # --- Maintenance ---
+    if db.query(MaintenanceLog).count() == 0:
+        equipment_data = [
+            ("AC Unit",       480, 95),
+            ("Pool Pump",     250, 45),
+            ("Generator",     950, 170),
+            ("Elevator",      400, 60),
+            ("Water Heater",  100, 20),
+            ("HVAC System",   620, 110),
+            ("Fire Alarm",    0,   300),
+        ]
+        for name, hours, days_ago in equipment_data:
+            log = MaintenanceLog(
+                equipment=name,
+                usage_hours=hours,
+                last_service=datetime.utcnow() - timedelta(days=days_ago),
+                risk_score=0.0,
+                risk_level="safe"
+            )
+            db.add(log)
+        print("  ✅ Maintenance logs seeded")
+
+    # --- Staff ---
+    if db.query(Staff).count() == 0:
+        staff_data = [
+            ("Dawit Bekele",   "Front Desk",   "[6]"),
+            ("Hana Tesfaye",   "Housekeeping", "[0]"),
+            ("Yonas Tadesse",  "Restaurant",   "[2]"),
+            ("Meron Alemu",    "Security",     "[5]"),
+            ("Biruk Haile",    "Maintenance",  "[1]"),
+            ("Liya Girma",     "Front Desk",   "[3]"),
+            ("Eyob Wolde",     "Housekeeping", "[4]"),
+            ("Selam Tekeste",  "Restaurant",   "[6]"),
+            ("Natnael Abebe",  "Security",     "[0]"),
+            ("Feven Kebede",   "Maintenance",  "[2]"),
+        ]
+        for name, role, days_off in staff_data:
+            db.add(Staff(name=name, role=role, days_off=days_off))
+        print("  ✅ Staff seeded")
+
+    # --- Inventory ---
+    if db.query(InventoryItem).count() == 0:
+        inventory_data = [
+            ("Fresh Injera",   "Food",       20.0,  50.0,  "kg",    15.0,  "Local Bakery"),
+            ("Coffee Beans",   "Food",       15.0,  10.0,  "kg",    45.0,  "Kaffa Highlands"),
+            ("Bed Linens",     "Linens",     120.0, 100.0, "units", 250.0, "Hotel Supplies Co"),
+            ("Soap Bars",      "Toiletries", 45.0,  150.0, "units", 5.0,   "CleanStay Ltd"),
+            ("Disinfectant",   "Cleaning",   8.0,   20.0,  "liters", 12.0,  "EcoClean"),
+            ("Honey & Spices", "Food",       12.0,  5.0,   "kg",    30.0,  "Local Farm"),
+        ]
+        for name, cat, stock, min_lvl, unit, cost, sup in inventory_data:
+            db.add(InventoryItem(
+                name=name, category=cat, current_stock=stock, 
+                min_stock_level=min_lvl, unit_measure=unit, 
+                unit_cost=cost, supplier=sup
+            ))
+        print("  ✅ Inventory seeded")
+
+    db.commit()
+    db.close()
+
+    # Train pricing model
+    print("  🤖 Training pricing model...")
+    train_pricing_model()
+    print("  ✅ Pricing model trained and saved")
+
+    print("\n🎉 Database seeded successfully! Run: uvicorn main:app --reload")
+
+if __name__ == "__main__":
+    seed()
