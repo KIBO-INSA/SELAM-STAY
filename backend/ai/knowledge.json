@@ -1,0 +1,114 @@
+{
+  "resort_info": {
+    "name": "Selam Stay Luxury Resort",
+    "location": "Bishoftu (Debre Zeyit), Ethiopia — 47km from Addis Ababa",
+    "description": "A premium lakeside resort blending modern luxury with deep Ethiopian traditions on the shores of Lake Bishoftu.",
+    "amenities": [
+      {"name": "Infinity Pool", "hours": "6:00 AM - 10:00 PM", "location": "Lakeside Wing", "note": "Heated pool, towels provided"},
+      {"name": "Fitness Center", "hours": "24/7", "location": "Main Building, Level 1", "note": "Yoga mats and personal trainer available 7–9 AM"},
+      {"name": "Business Center", "hours": "8:00 AM - 8:00 PM", "location": "Main Building, Level 0"},
+      {"name": "Free Shuttle", "hours": "8:00 AM, 12:00 PM, 6:00 PM", "location": "Main Lobby", "note": "To Addis Ababa city center"},
+      {"name": "Kids Club", "hours": "9:00 AM - 6:00 PM", "location": "Garden Wing"},
+      {"name": "Rooftop Lounge", "hours": "4:00 PM - Midnight", "location": "Level 7", "note": "Best views of Lake Bishoftu"}
+    ],
+    "check_in": "2:00 PM",
+    "check_out": "12:00 PM",
+    "standard_rules": [
+      "Quiet hours: 10:00 PM – 7:00 AM",
+      "Pool access: guests only",
+      "Pets: not permitted",
+      "Smoking: designated outdoor areas only"
+    ]
+  },
+  "dining": {
+    "restaurants": [
+      {
+        "name": "Tibeb Restaurant",
+        "cuisine": "Modern Ethiopian Fine Dining",
+        "hours": "7:00 AM - 11:00 PM",
+        "location": "Main Building, Level 1",
+        "reservation": "Recommended for dinner. Ask front desk or Selam to book.",
+        "breakfast_buffet": {"hours": "7:00 AM - 10:30 AM", "price": 280, "note": "Includes injera bar, honey, eggs, and fresh juice"},
+        "signature_dishes": [
+          {"name": "Selam Kitfo", "price": 450, "description": "Prime minced beef with spiced butter and ayib, served with kocho.", "category": "Meat"},
+          {"name": "Doro Wot Feast", "price": 550, "description": "Traditional spicy chicken stew with boiled eggs, served on injera.", "category": "Meat"},
+          {"name": "Shiro Tagamino", "price": 300, "description": "Silky shiro cooked directly in a clay pot with berbere and niter kibbeh.", "category": "Vegetarian"},
+          {"name": "Tibs Selam", "price": 480, "description": "Sautéed beef cubes with rosemary, green pepper, and onion.", "category": "Meat"},
+          {"name": "Asa (Fish Wot)", "price": 380, "description": "Freshwater fish from Lake Bishoftu in a light tomato berbere sauce.", "category": "Seafood"},
+          {"name": "Veggie Beyaynet", "price": 320, "description": "A colorful platter of 7 different vegetarian dishes on injera.", "category": "Vegetarian"}
+        ]
+      },
+      {
+        "name": "Lakeside Bar & Grill",
+        "cuisine": "International & Ethiopian BBQ",
+        "hours": "11:00 AM - 2:00 AM",
+        "location": "Lakeside Terrace",
+        "note": "Best spot for sunset drinks. Live music Fridays & Saturdays 8 PM.",
+        "signature_dishes": [
+          {"name": "Nile Perch Burger", "price": 400, "description": "Fresh lake fish with spicy mayo, avocado, and injera bun."},
+          {"name": "Beef Tibs Platter", "price": 480, "description": "Sizzling beef cubes with rosemary and chili, served with fries."},
+          {"name": "Ethiopian Wings", "price": 350, "description": "Berbere-marinated chicken wings with yogurt dip."},
+          {"name": "Lakeside Cocktail", "price": 220, "description": "House special with tej (honey wine), ginger, and citrus."}
+        ]
+      }
+    ],
+    "room_service": {
+      "hours": "24/7",
+      "note": "All Tibeb menu items available. 30-min delivery guarantee or 10% off.",
+      "extra_charge": 50,
+      "order_method": "Tell Selam what you want and she will place the order."
+    },
+    "coffee_ceremony": {
+      "name": "Traditional Ethiopian Coffee Ceremony",
+      "description": "An authentic 3-round coffee ceremony with incense and popcorn, hosted by our cultural team.",
+      "time": "Daily at 5:00 PM",
+      "location": "Cultural Pavilion — Garden Level",
+      "duration": "45 minutes",
+      "price": 150,
+      "member_perk": "Complimentary for Gold and Platinum loyalty members"
+    }
+  },
+  "spa_wellness": {
+    "name": "Abyssinian Wellness Spa",
+    "hours": "9:00 AM - 9:00 PM",
+    "location": "Wellness Wing — Level B1",
+    "booking_note": "Book at least 2 hours in advance. Selam can book for you.",
+    "services": [
+      {"name": "Ethiopian Aromatherapy", "duration": "60 min", "price": 1500, "description": "Deep relaxation using frankincense, myrrh, and Ethiopian botanical oils.", "category": "Massage"},
+      {"name": "Deep Tissue Massage", "duration": "90 min", "price": 2200, "description": "Targets muscle tension and improves circulation. Ideal for active guests.", "category": "Massage"},
+      {"name": "Lakeside Couples Massage", "duration": "90 min", "price": 3800, "description": "Side-by-side massage for two with lake view.", "category": "Massage"},
+      {"name": "Ethiopian Mud Wrap", "duration": "75 min", "price": 1800, "description": "Volcanic mud from the Rift Valley detox treatment.", "category": "Body Treatment"},
+      {"name": "Facial — Honey & Turmeric", "duration": "60 min", "price": 1200, "description": "Natural brightening facial using local honey and turmeric.", "category": "Facial"},
+      {"name": "Lakeside Yoga", "duration": "45 min", "price": 400, "description": "Sunrise (6:30 AM) and sunset (6:00 PM) sessions on the lakeside deck.", "category": "Wellness"}
+    ]
+  },
+  "activities": {
+    "on_site": [
+      {"name": "Coffee Ceremony", "time": "5:00 PM daily", "price": 150, "booking": "Walk-in or ask Selam"},
+      {"name": "Cultural Dance Show", "time": "7:00 PM Fri & Sat", "price": 0, "note": "Free for all guests, at Lakeside Bar"},
+      {"name": "Sunrise Yoga", "time": "6:30 AM daily", "price": 400, "booking": "Book with Selam 1 day in advance"},
+      {"name": "Kayaking on Lake Bishoftu", "time": "7:00 AM - 5:00 PM", "price": 600, "note": "Per hour, equipment included"},
+      {"name": "Bird Watching Tour", "time": "6:00 AM - 8:00 AM", "price": 350, "note": "Led by our resident naturalist"},
+      {"name": "Cooking Class — Ethiopian Cuisine", "time": "10:00 AM", "price": 800, "note": "Tuesdays and Saturdays, max 8 guests"}
+    ],
+    "excursions": [
+      {"name": "Mount Zuqualla Hike", "distance": "15 km away", "duration": "Half-day", "price": 1200, "description": "Extinct volcano with a crater lake and 12th-century monastery at the summit. Spectacular views."},
+      {"name": "Lake Babogaya Birdwatching", "distance": "3 km away", "duration": "2 hours", "price": 500, "description": "Flamingos, pelicans, and over 100 species. Guided boat tour available."},
+      {"name": "Addis Ababa City Tour", "distance": "47 km", "duration": "Full day", "price": 1800, "description": "Includes National Museum (Lucy), Mercato, and Entoto Hill. Private driver."},
+      {"name": "Debre Zeyit Market Visit", "distance": "5 km", "duration": "2 hours", "price": 300, "description": "Explore the vibrant local market. Best on Saturdays."}
+    ]
+  },
+  "local_attractions": [
+    {"name": "Mount Zuqualla", "dist": "15 km", "desc": "Extinct volcano with a monastery crown. Magnificent sunset views."},
+    {"name": "Lake Babogaya", "dist": "Walking distance (3 km)", "desc": "Famous for flamingos and serene kayaking."},
+    {"name": "Debre Zeyit Market", "dist": "5 km", "desc": "Vibrant local Saturday market. Great for spices and crafts."},
+    {"name": "Hora Recreational Park", "dist": "2 km", "desc": "Lakeside park popular with locals. Great for evening strolls."}
+  ],
+  "proactive_schedule": {
+    "morning_6_to_9": "Suggest sunrise yoga, bird watching, or the breakfast buffet at Tibeb.",
+    "morning_9_to_12": "Suggest spa booking, excursion planning, or the cooking class.",
+    "afternoon_12_to_17": "Suggest kayaking, pool, or an Addis Ababa city tour.",
+    "afternoon_17_to_19": "Remind about the Coffee Ceremony at 5 PM and the Cultural Dance Show.",
+    "evening_19_to_24": "Suggest the Lakeside Bar sunset cocktails, live music (Fri/Sat), and in-room dining."
+  }
+}

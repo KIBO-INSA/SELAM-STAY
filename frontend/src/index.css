@@ -13,3 +13,39 @@
     @apply font-heading tracking-tight;
   }
 }
+
+@layer components {
+  .glass-card {
+    @apply bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl;
+  }
+  
+  .premium-shadow {
+    @apply shadow-[0_20px_60px_-15px_rgba(28,25,23,0.15)];
+  }
+
+  .card-border {
+    @apply border border-gray-200/60;
+  }
+  
+  .text-glow {
+    text-shadow: 0 4px 30px rgba(0, 0, 0, 0.5), 0 0 20px rgba(0, 0, 0, 0.3);
+  }
+  
+  .hover-glow {
+    @apply cursor-pointer transition-all duration-300;
+  }
+  
+  .hover-glow:hover {
+    @apply shadow-[0_0_25px_rgba(251,_191,_36,_0.3)] border-amber-400/50;
+  }
+}
+
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}

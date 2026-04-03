@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
 import SelamBot          from './components/SelamBot';
 import Dashboard         from './components/Dashboard';
@@ -76,14 +77,16 @@ function Nav() {
 }
 
 export default function App() {
+  const [mood, setMood] = useState(null);
+
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#FAFAF9] text-gray-900 font-sans flex flex-col">
         <Nav />
         <main className="pt-16 flex-1 flex flex-col">
           <Routes>
-            <Route path="/portal"        element={<GuestPortal />} />
-            <Route path="/"              element={<SelamBot guestId="demo-guest" />} />
+            <Route path="/portal"        element={<GuestPortal setGlobalMood={setMood} />} />
+            <Route path="/"              element={<SelamBot guestId="guest-1" mood={mood} />} />
             <Route path="/room-controls" element={<RoomControlPage />} />
             <Route path="/services"      element={<ServiceRequestPage />} />
             <Route path="/feedback"      element={<FeedbackPage />} />

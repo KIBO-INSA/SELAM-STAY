@@ -3,8 +3,9 @@ import axios from 'axios';
 const api = axios.create({ baseURL: '/api' });
 
 export const conciergeAPI = {
-  chat:  (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),
-  reset: (guest_id)          => api.post('/concierge/reset', { guest_id }),
+  chat:      (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),
+  reset:     (guest_id)          => api.post('/concierge/reset', { guest_id }),
+  proactive: (guest_id)          => api.get(`/concierge/proactive/${guest_id}`),
 };
 
 export const sentimentAPI = {

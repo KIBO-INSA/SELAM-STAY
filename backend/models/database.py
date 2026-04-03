@@ -101,6 +101,15 @@ class ServiceRequest(Base):
     updated_at      = Column(DateTime, default=datetime.utcnow)
 
 
+class ConversationHistory(Base):
+    __tablename__ = "conversation_history"
+    id          = Column(Integer, primary_key=True, index=True)
+    guest_id    = Column(Integer)
+    role        = Column(String)  # "user" or "assistant"
+    content     = Column(String)
+    timestamp   = Column(DateTime, default=datetime.utcnow)
+
+
 def get_db():
     db = SessionLocal()
     try:
