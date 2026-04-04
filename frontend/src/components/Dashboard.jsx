@@ -20,6 +20,8 @@ export default function Dashboard() {
   const [loading,    setLoading] = useState(true);
   const [error,      setError]   = useState(null);
   const [activeTab,  setActiveTab] = useState('overview');
+  const [tasks,      setTasks]   = useState([]);
+  const [tasksError, setTasksError] = useState(null);
 
   useEffect(() => {
     refreshData();
@@ -28,6 +30,7 @@ export default function Dashboard() {
   const refreshData = () => {
     setLoading(true);
     setError(null);
+    setTasksError(null);
     dashboardAPI.summary()
       .then(res => setData(res.data))
       .catch(err => {
@@ -35,6 +38,13 @@ export default function Dashboard() {
         setData(null);
       })
       .finally(() => setLoading(false));
+
+    dashboardAPI.tasks()
+      .then(res => setTasks(res.data?.tasks || []))
+      .catch(err => {
+        setTasksError(err);
+        setTasks([]);
+      });
   };
 
   if (loading && !data) {
@@ -218,6 +228,71 @@ export default function Dashboard() {
                       <AutomationItem title="Zambia Cultural Boost" desc="Sent push notification for 1963 Restaurant 'Nshima' special to current Zambia villa guest." impact="Engaged" />
                     </div>
                   </div>
+                </div>
+
+                {/* Task Schedule */}
+                <div className="lg:col-span-3 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-heading font-bold flex items-center gap-3">
+                      <Activity className="text-amber-500" />
+                      Task Schedule
+                    </h3>
+                    <span className="text-xs text-gray-400">
+                      {tasks?.length || 0} active
+                    </span>
+                  </div>
+
+                  {tasksError ? (
+                    <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 text-sm text-rose-300">
+                      Failed to load task schedule.
+                    </div>
+                  ) : (tasks?.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase tracking-widest text-gray-400 border-b border-white/10">
+                            <th className="py-3 pr-4">Ref</th>
+                            <th className="py-3 pr-4">Category</th>
+                            <th className="py-3 pr-4">Room</th>
+                            <th className="py-3 pr-4">Status</th>
+                            <th className="py-3 pr-4">Assigned Staff</th>
+                            <th className="py-3">Assigned At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasks.slice(0, 20).map(t => {
+                            const staff = t.assigned_staff;
+                            const staffLabel = staff?.name ? `${staff.name}${staff.role ? ` (${staff.role})` : ''}` : (staff?.id ? `Staff #${staff.id}` : 'Unassigned');
+                            const assignedAt = t.assigned_at ? new Date(t.assigned_at).toLocaleString() : '—';
+                            const statusColor = t.status === 'in_progress'
+                              ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
+                              : t.status === 'pending'
+                                ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30';
+
+                            return (
+                              <tr key={t.id} className="border-b border-white/5 last:border-b-0">
+                                <td className="py-3 pr-4 font-mono text-xs text-gray-300">#{t.ref_id || t.id}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.category || '—'}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.room_number || '—'}</td>
+                                <td className="py-3 pr-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
+                                    {t.status || '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 pr-4 text-gray-200">{staffLabel}</td>
+                                <td className="py-3 text-gray-400">{assignedAt}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-gray-300">
+                      No active tasks right now.
+                    </div>
+                  ))}
                 </div>
               </>
             )}

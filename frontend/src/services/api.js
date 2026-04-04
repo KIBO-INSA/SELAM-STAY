@@ -40,6 +40,7 @@ export const schedulerAPI = {
 
 export const dashboardAPI = {
   summary: ()               => api.get('/dashboard/summary'),
+  tasks: ()                 => api.get('/dashboard/tasks'),
 };
 
 export const roomControlsAPI = {

@@ -78,14 +78,54 @@ def detect_intent(message: str) -> Optional[str]:
         if mentions_food_context or mentions_common_food or (_parse_quantity(text) is not None):
             matches.append("food_order")
 
-    if has_any("housekeeping", "clean", "cleaning", "refresh room", "towels and cleaning"):
+    # "Room service" often implies ordering even without an explicit verb.
+    # Avoid starting a workflow for informational questions (e.g., "Room service menu?").
+    if has_any("room service") and not is_price_inquiry and "?" not in text:
+        matches.append("food_order")
+
+    if has_any(
+        "housekeeping",
+        "clean",
+        "cleaning",
+        "refresh room",
+        "towels and cleaning",
+        "minibar",
+        "mini bar",
+        "restock",
+        "refill",
+    ):
         matches.append("housekeeping")
 
     # Spa booking (requires booking action; avoid triggering on general spa questions)
     if has_any("spa", "massage", "treatment", "sauna", "wellness", "facial"):
         is_booking_action = has_any("book", "reserve", "appointment", "session", "schedule")
-        if is_booking_action:
+        # Also allow common booking phrasing without the explicit word "book".
+        seems_like_booking = is_booking_action or has_any("i want", "i would like", "can i get", "need")
+        if seems_like_booking or (_parse_time(text) is not None):
             matches.append("spa_booking")
+
+    # Transport requests (airport shuttle, pickup/drop-off, day trips)
+    if has_any(
+        "transport",
+        "shuttle",
+        "airport",
+        "pickup",
+        "pick up",
+        "dropoff",
+        "drop off",
+        "taxi",
+        "driver",
+        "ride",
+        "day trip",
+        "daytrip",
+    ):
+        is_transport_action = has_any("need", "book", "arrange", "schedule", "reserve", "please", "can you", "i want", "i would like")
+        is_simple_request = text.strip() in {"transport", "shuttle", "airport shuttle", "airport pickup", "airport drop off", "airport dropoff"}
+        # Avoid starting a workflow for informational questions unless it's clearly a request.
+        if ("?" in text) and not (is_transport_action or is_simple_request):
+            pass
+        elif is_transport_action or is_simple_request or (_parse_time(text) is not None):
+            matches.append("transport_request")
 
     if has_any("broken", "not working", "doesn't work", "issue", "problem", "ac", "aircon", "leak", "plumbing", "electric", "light"):
         matches.append("maintenance_request")
@@ -240,6 +280,34 @@ def extract_slots(intent: str, message: str) -> dict:
         t = _parse_time(lower)
         if t:
             slots["time"] = t
+        # Optional details (keeps the flow minimal while still capturing minibar/cleaning intent).
+        if any(k in lower for k in ["minibar", "mini bar", "restock", "refill"]):
+            slots["details"] = "minibar"
+        elif any(k in lower for k in ["clean", "cleaning", "refresh"]):
+            slots["details"] = "cleaning"
+
+    elif intent == "transport_request":
+        # date/time
+        t = _parse_time(lower)
+        if t:
+            slots["time"] = t
+        d, err = _parse_date(lower, allow_weekday=True)
+        if d:
+            slots["date"] = d
+
+        # destination
+        dest = None
+        if "airport" in lower:
+            dest = "Airport"
+        m = re.search(r"\bto\s+([a-z0-9\s\-']{3,60})", lower)
+        if m:
+            candidate = m.group(1)
+            candidate = re.split(r"\b(at|on|tomorrow|today|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b", candidate)[0]
+            candidate = re.sub(r"\s+", " ", candidate).strip(" ,.")
+            if len(candidate) >= 3:
+                dest = candidate
+        if dest:
+            slots["destination"] = dest
 
     elif intent == "maintenance_request":
         # issue_type
@@ -277,6 +345,9 @@ def extract_slots(intent: str, message: str) -> dict:
         item_text = re.sub(r"\b(order|food|please|i\s+want|i\s+would\s+like|bring|get\s+me|deliver|delivery|send|at|for)\b", " ", item_text)
         item_text = re.sub(r"\b(\d{1,2}):(\d{2})\b", " ", item_text)
         item_text = re.sub(r"\s+", " ", item_text).strip(" ,.")
+        # Avoid treating generic phrases as the actual item.
+        if item_text in {"room service", "roomservice"}:
+            item_text = ""
         if item_text and len(item_text) >= 3:
             slots["item"] = item_text
 
@@ -326,6 +397,13 @@ def _slot_prompt(intent: str, slot: str) -> str:
     if intent == "housekeeping" and slot == "time":
         return "What time should housekeeping come? (e.g., 2 PM)"
 
+    if intent == "transport_request" and slot == "destination":
+        return "Where should the transport go? (e.g., Airport, Addis Ababa, Day trip to Lake Ziway)"
+    if intent == "transport_request" and slot == "date":
+        return "Which date? (today/tomorrow/Monday or YYYY-MM-DD)"
+    if intent == "transport_request" and slot == "time":
+        return "What time do you need pickup? (e.g., 6 AM)"
+
     if intent == "maintenance_request" and slot == "issue_type":
         return "What’s not working? (e.g., AC, WiFi, plumbing, lights)"
     if intent == "maintenance_request" and slot == "urgency":
@@ -346,7 +424,7 @@ def _slot_prompt(intent: str, slot: str) -> str:
     if slot == "date":
         return "Which date? (today/tomorrow/Monday or YYYY-MM-DD)"
     if slot == "time":
-        return "What time?"
+                    "What would you like to do next? I can help with room service (food delivery), housekeeping (towels/cleaning/minibar), spa booking, transport, maintenance, or late checkout."
 
     return f"Please provide {slot}."
 
@@ -357,7 +435,12 @@ def _format_slots(intent: str, slots: dict) -> str:
     if intent == "food_order":
         return f"{slots.get('quantity')} × {slots.get('item')} at {slots.get('time')}"
     if intent == "housekeeping":
+        details = slots.get("details")
+        if details:
+            return f"housekeeping ({details}) at {slots.get('time')}"
         return f"housekeeping at {slots.get('time')}"
+    if intent == "transport_request":
+        return f"transport to {slots.get('destination')} on {slots.get('date')} at {slots.get('time')}"
     if intent == "maintenance_request":
         return f"maintenance: {slots.get('issue_type')} ({slots.get('urgency')})"
     if intent == "late_checkout":
@@ -426,7 +509,13 @@ def _create_service_request(db, guest_id: str, intent: str, slots: dict) -> int:
     elif intent == "food_order":
         description = f"Food order: {slots.get('quantity')} × {slots.get('item')} at {slots.get('time')}"
     elif intent == "housekeeping":
-        description = f"Housekeeping at {slots.get('time')}"
+        details = slots.get("details")
+        if details:
+            description = f"Housekeeping ({details}) at {slots.get('time')}"
+        else:
+            description = f"Housekeeping at {slots.get('time')}"
+    elif intent == "transport_request":
+        description = f"Transport to {slots.get('destination')} on {slots.get('date')} at {slots.get('time')}"
     elif intent == "maintenance_request":
         description = f"Maintenance issue: {slots.get('issue_type')} (urgency: {slots.get('urgency')})"
     elif intent == "late_checkout":
@@ -488,7 +577,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
         # If the guest says "yes" outside a confirmation stage, treat it as a prompt for next action.
         if state.conversation_stage in {"idle", "idle_silent"} and lower in {"yes", "yep", "yeah", "ok", "okay", "sure"}:
             return OrchestratorResult(
-                "What would you like to do next? I can help with towels, food delivery, housekeeping, maintenance, spa booking, or late checkout."
+                "What would you like to do next? I can help with room service (food delivery), housekeeping (towels/cleaning/minibar), spa booking, transport, maintenance, or late checkout."
             )
 
         # Global commands
@@ -540,7 +629,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
                 state.updated_at = datetime.utcnow()
                 db.commit()
                 return OrchestratorResult(
-                    "Welcome to Kuriftu Resort. I can help with fresh towels, food orders, housekeeping, spa booking, maintenance, and late checkout. What would you like to do?"
+                    "Welcome to Kuriftu Resort. I can help with room service (food orders), housekeeping (towels/cleaning/minibar), spa booking, transport, maintenance, and late checkout. What would you like to do?"
                 )
 
             # If we already have context, don't re-run a full greeting loop.
@@ -550,7 +639,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
             intent = detect_intent(text)
             if intent == "__ambiguous__":
                 return OrchestratorResult(
-                    "I can help - do you want towels, food order, housekeeping, maintenance, spa booking, or late checkout? (Pick one)"
+                    "I can help - do you want room service, towels, housekeeping, transport, maintenance, spa booking, or late checkout? (Pick one)"
                 )
 
             if not intent:
