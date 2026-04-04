@@ -82,28 +82,42 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-stone-100 text-gray-900 font-sans flex flex-col">
-        <Nav isManagerAuthenticated={isManagerAuthenticated} />
-        <main className="flex-1 flex flex-col">
-          <Routes>
-            <Route path="/map" element={<ResortMap />} />
-            <Route path="/login" element={<LoginPage onLogin={setIsManagerAuthenticated} />} />
-            <Route path="/dashboard" element={
-              isManagerAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
-            } />
-            
-            {/* Guest Routes */}
-            <Route path="/portal"        element={<GuestPortal setGlobalMood={setMood} />} />
-            <Route path="/"              element={<SelamBot guestId="guest-1" mood={mood} />} />
-            <Route path="/room-controls" element={<RoomControlPage />} />
-            <Route path="/services"      element={<ServiceRequestPage />} />
-            <Route path="/feedback"      element={<FeedbackPage />} />
-            
-            {/* Catch All */}
-            <Route path="*" element={<Navigate to="/portal" replace />} />
-          </Routes>
-        </main>
-      </div>
+      <AppContent 
+        mood={mood} 
+        setMood={setMood} 
+        isManagerAuthenticated={isManagerAuthenticated} 
+        setIsManagerAuthenticated={setIsManagerAuthenticated} 
+      />
     </BrowserRouter>
+  );
+}
+
+function AppContent({ mood, setMood, isManagerAuthenticated, setIsManagerAuthenticated }) {
+  const loc = useLocation();
+  const isLoginPage = loc.pathname === '/login';
+
+  return (
+    <div className="min-h-screen bg-stone-100 text-gray-900 font-sans flex flex-col">
+      <Nav isManagerAuthenticated={isManagerAuthenticated} />
+      <main className={`flex-1 flex flex-col ${!isLoginPage ? 'pt-20' : ''}`}>
+        <Routes>
+          <Route path="/map" element={<ResortMap />} />
+          <Route path="/login" element={<LoginPage onLogin={setIsManagerAuthenticated} />} />
+          <Route path="/dashboard" element={
+            isManagerAuthenticated ? <Dashboard /> : <Navigate to="/login" replace />
+          } />
+          
+          {/* Guest Routes */}
+          <Route path="/portal"        element={<GuestPortal setGlobalMood={setMood} />} />
+          <Route path="/"              element={<SelamBot guestId="guest-1" mood={mood} />} />
+          <Route path="/room-controls" element={<RoomControlPage />} />
+          <Route path="/services"      element={<ServiceRequestPage />} />
+          <Route path="/feedback"      element={<FeedbackPage />} />
+          
+          {/* Catch All */}
+          <Route path="*" element={<Navigate to="/portal" replace />} />
+        </Routes>
+      </main>
+    </div>
   );
 }

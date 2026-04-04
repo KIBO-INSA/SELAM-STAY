@@ -32,6 +32,9 @@ class Room(Base):
     current_price = Column(Float)
     is_occupied   = Column(Boolean, default=False)
     last_service  = Column(DateTime, default=datetime.utcnow)
+    currency      = Column(String, default="ETB")        # ETB or USD
+    exchange_rate = Column(Float, default=1.0)          # 1.0 for ETB, current market for USD
+    property_location = Column(String, default="African Village")
 
 
 class Feedback(Base):
@@ -44,6 +47,7 @@ class Feedback(Base):
     score       = Column(Float, default=0.5)
     timestamp   = Column(DateTime, default=datetime.utcnow)
     is_resolved = Column(Boolean, default=False)
+    property_location = Column(String, default="African Village")
 
 
 class MaintenanceLog(Base):
@@ -75,6 +79,8 @@ class InventoryItem(Base):
     unit_measure    = Column(String) # kg, liters, units
     unit_cost       = Column(Float)
     supplier        = Column(String)
+    lead_time_days  = Column(Integer, default=3)   # Days for supply to arrive
+    property_location = Column(String, default="African Village")
 
 
 class RoomControl(Base):
@@ -97,6 +103,9 @@ class ServiceRequest(Base):
     description     = Column(String)
     status          = Column(String, default="pending")  # pending, in_progress, completed
     priority        = Column(String, default="normal")  # low, normal, high, urgent
+    currency        = Column(String, default="ETB")
+    exchange_rate   = Column(Float, default=1.0)
+    property_location = Column(String, default="African Village")
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow)
 
