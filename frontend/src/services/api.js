@@ -51,3 +51,8 @@ export const serviceAPI = {
   getByGuest: (guestId)    => api.get(`/services/guest/${guestId}`),
   updateStatus: (id, status) => api.post(`/services/${id}/status`, { status }),
 };
+
+export const guestAPI = {
+  updatePreferences: (data) => api.post('/guest/preferences', data),
+  getProfile: (guestId)     => api.get(`/guest/${guestId}`),
+};

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Briefcase, Users, Flame, Coffee, Utensils, WheatOff, ArrowRight, ArrowLeft } from 'lucide-react';
+import { guestAPI } from '../services/api';
 
 export default function Preference({ preferences, setPreferences, onComplete }) {
   const [step, setStep] = useState(1);
@@ -20,11 +21,26 @@ export default function Preference({ preferences, setPreferences, onComplete }) 
     { id: 'premium',    label: 'Premium Dining',     icon: Utensils, desc: 'High-end culinary experiences.' }
   ];
 
-  const handleNext = () => {
-    if (step < totalSteps) setStep(step + 1);
-    else {
-      // Simulate saving to backend profile, then release guest into portal
-      onComplete();
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleNext = async () => {
+    if (step < totalSteps) {
+      setStep(step + 1);
+    } else {
+      setIsSaving(true);
+      try {
+        await guestAPI.updatePreferences({
+          guest_id: "guest-1", // Using dummy ID from App.jsx state for demo
+          food: preferences.food,
+          drink: preferences.drink,
+          activity: preferences.activity
+        });
+        onComplete();
+      } catch (error) {
+        console.error("Failed to save preferences:", error);
+        // Ensure they still get to the portal in demo mode if the backend crashes
+        onComplete();
+      }
     }
   };
 
@@ -154,13 +170,14 @@ export default function Preference({ preferences, setPreferences, onComplete }) 
 
           <button 
             onClick={handleNext}
+            disabled={isSaving}
             className={`flex items-center gap-3 px-8 py-4 rounded-2xl font-black uppercase tracking-widest text-xs transition-all duration-300 ${
-              (step === 1 && !preferences.food) || (step === 2 && !preferences.drink)
+              (step === 1 && !preferences.food) || (step === 2 && !preferences.drink) || isSaving
                 ? 'bg-white/10 text-gray-600 cursor-not-allowed'
                 : 'bg-white text-black hover:bg-amber-500 hover:shadow-[0_0_30px_rgba(245,158,11,0.3)] hover:scale-105'
             }`}
           >
-            {step === totalSteps ? 'Complete Profile' : 'Next Step'} 
+            {isSaving ? "Saving..." : (step === totalSteps ? 'Complete Profile' : 'Next Step')} 
             <ArrowRight size={16} />
           </button>
         </div>

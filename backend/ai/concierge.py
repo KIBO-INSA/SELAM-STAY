@@ -44,7 +44,8 @@ def get_guest_stay_details(guest_id: str) -> str:
             "room_type": room.type if room else "N/A",
             "language": guest.language,
             "check_in": str(guest.check_in),
-            "loyalty": "Gold Member"
+            "loyalty": "Gold Member",
+            "preferences": json.loads(guest.preferences) if guest.preferences else {}
         })
     finally:
         db.close()
