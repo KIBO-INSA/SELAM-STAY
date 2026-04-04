@@ -1,341 +1,458 @@
 import { useState, useEffect } from 'react';
-import { dashboardAPI, maintenanceAPI, sentimentAPI, pricingAPI, schedulerAPI } from '../services/api';
+import { dashboardAPI, sentimentAPI } from '../services/api';
 import {
-  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell, Legend
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar, PieChart, Pie, Cell, Legend, RadarChart, PolarGrid, PolarAngleAxis, Radar
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  LayoutDashboard, Wrench, DollarSign, CalendarDays,
-  AlertTriangle, CheckCircle2, AlertCircle, Clock, Package
+  TrendingUp, Users, Heart, Target, 
+  Zap, Sparkles, DollarSign, ArrowUpRight,
+  ChevronRight, BrainCircuit, Activity,
+  RefreshCcw, Globe, AlertCircle, Award,
+  Map, Star
 } from 'lucide-react';
-import InventoryManager from './InventoryManager';
 
-const COLORS = ['#10b981', '#f59e0b', '#ef4444'];
+const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
 export default function Dashboard() {
-  const [summary,     setSummary]     = useState(null);
-  const [maintenance, setMaintenance] = useState([]);
-  const [alerts,      setAlerts]      = useState([]);
-  const [pricing,     setPricing]     = useState([]);
-  const [schedule,    setSchedule]    = useState([]);
-  const [loading,     setLoading]     = useState(true);
-  const [activeTab,   setActiveTab]   = useState('overview');
+  const [data,       setData]    = useState(null);
+  const [loading,    setLoading] = useState(true);
+  const [activeTab,  setActiveTab] = useState('overview');
 
   useEffect(() => {
-    Promise.all([
-      dashboardAPI.summary(),
-      maintenanceAPI.all(),
-      sentimentAPI.alerts(),
-      pricingAPI.simulate(),
-      schedulerAPI.week(),
-    ]).then(([s, m, a, p, sc]) => {
-      setSummary(s.data);
-      setMaintenance(m.data);
-      setAlerts(a.data);
-      setPricing(p.data);
-      setSchedule(sc.data.schedule || []);
-    }).finally(() => setLoading(false));
+    refreshData();
   }, []);
 
-  const resolveAlert = async (id) => {
-    await sentimentAPI.resolve(id);
-    setAlerts(prev => prev.filter(a => a.id !== id));
+  const refreshData = () => {
+    setLoading(true);
+    dashboardAPI.summary()
+      .then(res => setData(res.data))
+      .finally(() => setLoading(false));
   };
 
-  if (loading) {
+  if (loading && !data) {
     return (
-      <div className="flex-1 flex items-center justify-center p-8">
-        <div className="flex flex-col items-center gap-4 text-coffee-800">
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-          >
-            <Clock size={32} />
-          </motion.div>
-          <span className="font-heading font-medium">Loading Selam Stay Dashboard...</span>
-        </div>
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
+        <motion.div 
+          animate={{ rotate: 360, scale: [1, 1.2, 1] }}
+          transition={{ repeat: Infinity, duration: 2 }}
+          className="text-amber-500 mb-4"
+        >
+          <Globe size={48} />
+        </motion.div>
+        <h2 className="text-xl font-heading font-bold text-white tracking-widest uppercase animate-pulse">
+          Connecting African Nations...
+        </h2>
       </div>
     );
   }
 
-  const sentimentData = summary ? [
-    { name: 'Positive', value: summary.sentiment_breakdown.positive },
-    { name: 'Neutral',  value: summary.sentiment_breakdown.neutral },
-    { name: 'Negative', value: summary.sentiment_breakdown.negative },
-  ] : [];
-
-  const TABS = [
-    { id: 'overview', label: 'Overview', icon: LayoutDashboard },
-    { id: 'inventory', label: 'Inventory', icon: Package },
-    { id: 'maintenance', label: 'Maintenance', icon: Wrench },
-    { id: 'pricing', label: 'Pricing Engine', icon: DollarSign },
-    { id: 'schedule', label: 'Staff Schedule', icon: CalendarDays },
-    { id: 'alerts', label: 'Alerts', icon: AlertTriangle, count: alerts.length },
-  ];
-
   return (
-    <div className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
-      
-      {/* Tab Navigation */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <h1 className="text-3xl font-heading font-bold text-coffee-900">Manager Dashboard</h1>
-        <div className="flex flex-wrap gap-2 bg-white p-1.5 rounded-xl shadow-sm border border-gray-100">
-          {TABS.map(tab => {
-            const Icon = tab.icon;
-            const isActive = activeTab === tab.id;
-            return (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive ? 'text-amber-700 bg-amber-50' : 'text-gray-600 hover:text-coffee-800 hover:bg-gray-50'
-                }`}
-              >
-                <Icon size={16} />
-                <span>{tab.label}</span>
-                {tab.count > 0 && (
-                  <span className="ml-1 bg-red-100 text-red-600 px-2 py-0.5 rounded-full text-xs font-bold">
-                    {tab.count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
+    <div className="flex-1 bg-[#0a0a0b] text-white selection:bg-amber-500/30 min-h-screen">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
+        
+        {/* Header */}
+        <header className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2 text-amber-500 font-bold tracking-wider text-xs uppercase">
+              <Sparkles size={14} />
+              <span>Pan-African Intelligence Hub</span>
+            </div>
+            <h1 className="text-4xl font-heading font-black tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+              Kuriftu <span className="text-amber-500 italic">African Village</span>
+            </h1>
+          </div>
+
+          <div className="flex items-center gap-3">
+            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-xl">
+              {['overview', 'cultural', 'revenue', 'guests'].map(t => (
+                <button
+                  key={t}
+                  onClick={() => setActiveTab(t)}
+                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                    activeTab === t 
+                    ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]' 
+                    : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  {t}
+                </button>
+              ))}
+            </div>
+            <button 
+              onClick={refreshData}
+              className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-colors"
+            >
+              <RefreshCcw size={18} className={loading ? 'animate-spin' : ''} />
+            </button>
+          </div>
+        </header>
+
+        {/* Global AI Metrics */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <MetricCard 
+            label="Total Daily Revenue" 
+            value={`ETB ${data.revenue.today_etb.toLocaleString()}`} 
+            trend="+12.5%" 
+            isUp={true}
+            icon={DollarSign}
+            color="amber"
+          />
+          <MetricCard 
+            label="Cultural Engagement" 
+            value={`${data.cultural_performance.reduce((acc, curr) => acc + curr.engagement, 0) / data.cultural_performance.length}%`} 
+            trend="Active" 
+            icon={Map}
+            color="blue"
+          />
+          <MetricCard 
+            label="Avg Sentiment" 
+            value="91%" 
+            trend="+2.1%" 
+            isUp={true}
+            icon={Heart}
+            color="rose"
+          />
+          <MetricCard 
+            label="Experience Gaps" 
+            value={data.cultural_performance.filter(v => v.status === 'Gap').length} 
+            trend="Action Required" 
+            icon={AlertCircle}
+            color="rose"
+          />
         </div>
-      </div>
 
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={activeTab}
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          exit={{ opacity: 0, y: -10 }}
-          transition={{ duration: 0.2 }}
-        >
-          
-          {/* OVERVIEW */}
-          {activeTab === 'overview' && summary && (
-            <div className="space-y-6">
-              {/* KPIs */}
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                <KPICard title="Occupancy" value={`${summary.occupancy.percentage}%`} sub={`Rooms: ${summary.occupancy.occupied}/${summary.occupancy.total_rooms}`} color="border-green-500" />
-                <KPICard title="Today's Revenue" value={`ETB ${summary.revenue.today_etb}`} sub="Estimated based on occupied" color="border-amber-500" />
-                <KPICard title="Unresolved Alerts" value={summary.alerts.unresolved_negative_feedback} sub="Guest feedback issues" color="border-red-500" />
-                <KPICard title="Critical Maintenance" value={summary.alerts.critical_maintenance} sub="Needs immediate action" color="border-orange-500" />
-              </div>
-
-              {/* Charts */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-heading font-semibold text-coffee-900 mb-4">Guest Sentiment</h3>
-                  <div className="h-64">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab}
+            initial={{ opacity: 0, scale: 0.98 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+          >
+            {/* OVERVIEW CONTENT */}
+            {activeTab === 'overview' && (
+              <>
+                {/* Revenue Forecast Chart */}
+                <div className="lg:col-span-2 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                  <div className="flex items-center justify-between mb-8">
+                    <h3 className="text-xl font-heading font-bold flex items-center gap-3">
+                      <TrendingUp className="text-blue-500" />
+                      Revenue Predictive Analytics
+                    </h3>
+                    <span className="bg-blue-500/20 text-blue-400 px-3 py-1 rounded-full text-xs font-bold ring-1 ring-blue-500/30">
+                      G3 Forecast
+                    </span>
+                  </div>
+                  <div className="h-[300px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie data={sentimentData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={2}>
-                          {sentimentData.map((_, i) => <Cell key={i} fill={COLORS[i % COLORS.length]} />)}
-                        </Pie>
-                        <Legend verticalAlign="bottom" height={36}/>
-                        <Tooltip contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                      </PieChart>
+                      <AreaChart data={data.revenue.forecast} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="colorRev" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.3}/>
+                            <stop offset="95%" stopColor="#3b82f6" stopOpacity={0}/>
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#ffffff10" />
+                        <XAxis dataKey="day" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} dy={10} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#6B7280' }} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '16px', color: '#fff' }}
+                        />
+                        <Area type="monotone" dataKey="revenue" stroke="#3b82f6" strokeWidth={3} fillOpacity={1} fill="url(#colorRev)" />
+                      </AreaChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
 
-                <div className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm">
-                  <h3 className="text-lg font-heading font-semibold text-coffee-900 mb-4">Dynamic Pricing (ETB)</h3>
-                  <div className="h-64">
+                {/* Experience Gaps & Automations */}
+                <div className="bg-gradient-to-br from-rose-900/10 to-amber-900/10 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                  <h3 className="text-xl font-heading font-bold mb-6 flex items-center gap-3">
+                    <AlertCircle className="text-rose-500" />
+                    Experience Gaps
+                  </h3>
+                  <div className="space-y-4">
+                    {data.cultural_performance.filter(v => v.status === 'Gap').map(v => (
+                      <div key={v.villa} className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20">
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="font-bold text-white uppercase text-xs tracking-widest">{v.villa} Villa</span>
+                          <span className="text-[10px] text-rose-400 font-black">{v.sentiment}% Mood</span>
+                        </div>
+                        <p className="text-xs text-gray-400">Low engagement with in-room artifacts reported. AI suggesting proactive digital guide session.</p>
+                      </div>
+                    ))}
+                    <div className="pt-4 border-t border-white/5">
+                      <h4 className="text-xs font-black uppercase text-amber-500 tracking-tighter mb-4">AI Recovery Actions</h4>
+                      <AutomationItem title="Zambia Cultural Boost" desc="Sent push notification for 1963 Restaurant 'Nshima' special to current Zambia villa guest." impact="Engaged" />
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+
+            {/* CULTURAL INTELLIGENCE CONTENT */}
+            {activeTab === 'cultural' && (
+              <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="lg:col-span-2 bg-white/5 border border-white/10 p-8 rounded-[2.5rem] backdrop-blur-3xl">
+                  <h3 className="text-xl font-heading font-bold mb-8 flex items-center gap-3">
+                    <Globe className="text-amber-500" />
+                    Pan-African Consistency Score
+                  </h3>
+                  <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <BarChart data={pricing} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E5E7EB" />
-                        <XAxis dataKey="room_type" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} dy={10} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: '#6B7280' }} />
-                        <Tooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
-                        <Bar dataKey="base_price" name="Base Price" fill="#E5E7EB" radius={[4, 4, 0, 0]} barSize={32} />
-                        <Bar dataKey="recommended_price" name="Optimized Price" fill="#D97706" radius={[4, 4, 0, 0]} barSize={32} />
-                      </BarChart>
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data.cultural_performance}>
+                        <PolarGrid stroke="#ffffff20" />
+                        <PolarAngleAxis dataKey="villa" tick={{ fill: '#9ca3af', fontSize: 10 }} />
+                        <Radar
+                          name="Engagement"
+                          dataKey="engagement"
+                          stroke="#3b82f6"
+                          fill="#3b82f6"
+                          fillOpacity={0.6}
+                        />
+                        <Radar
+                          name="Sentiment"
+                          dataKey="sentiment"
+                          stroke="#f59e0b"
+                          fill="#f59e0b"
+                          fillOpacity={0.6}
+                        />
+                        <Legend />
+                        <Tooltip contentStyle={{ backgroundColor: '#18181b', border: '1px solid #ffffff10', borderRadius: '16px' }} />
+                      </RadarChart>
                     </ResponsiveContainer>
                   </div>
                 </div>
-              </div>
-            </div>
-          )}
 
-          {/* INVENTORY */}
-          {activeTab === 'inventory' && (
-            <InventoryManager />
-          )}
-
-          {/* MAINTENANCE */}
-          {activeTab === 'maintenance' && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100">
-                <h3 className="text-lg font-heading font-semibold text-coffee-900">Equipment Risk Analysis</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-gray-500 font-medium">
-                    <tr>
-                      <th className="px-6 py-4">Equipment</th>
-                      <th className="px-6 py-4">Usage (hrs)</th>
-                      <th className="px-6 py-4">Risk Score</th>
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Action Required</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {maintenance.map((m, i) => (
-                      <tr key={i} className="hover:bg-gray-50/50 transition-colors">
-                        <td className="px-6 py-4 font-medium text-gray-900">{m.equipment}</td>
-                        <td className="px-6 py-4 text-gray-600">{m.usage_hours}h</td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium">{m.risk_score}</span>
-                            <div className="w-16 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                              <div 
-                                className={`h-full ${m.risk_level === 'critical' ? 'bg-red-500' : m.risk_level === 'warning' ? 'bg-amber-500' : 'bg-green-500'}`}
-                                style={{ width: `${m.risk_score * 100}%` }}
-                              />
-                            </div>
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold capitalize
-                            ${m.risk_level === 'critical' ? 'bg-red-50 text-red-700' : 
-                              m.risk_level === 'warning' ? 'bg-amber-50 text-amber-700' : 'bg-green-50 text-green-700'}
-                          `}>
-                            {m.risk_level}
+                <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex flex-col gap-6">
+                  <h3 className="text-lg font-heading font-bold flex items-center gap-2">
+                    <Award className="text-amber-500" />
+                    Villa Rankings
+                  </h3>
+                  <div className="space-y-4">
+                    {data.cultural_performance.sort((a,b) => b.engagement - a.engagement).map((v, i) => (
+                      <div key={v.villa} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
+                        <div className="flex items-center gap-4">
+                          <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${i < 2 ? 'bg-amber-500 text-black' : 'bg-white/10 text-gray-400'}`}>
+                            {i + 1}
                           </span>
-                        </td>
-                        <td className="px-6 py-4 text-gray-600">{m.recommendation || 'Normal operation'}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* PRICING */}
-          {activeTab === 'pricing' && (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-              {pricing.map((p, i) => {
-                const isUp = p.change_percent >= 0;
-                return (
-                  <div key={i} className="bg-white p-6 rounded-2xl border border-gray-100 shadow-sm hover:shadow-md transition-shadow">
-                    <div className="flex justify-between items-start mb-4">
-                      <h4 className="font-heading font-semibold text-gray-900">{p.room_type}</h4>
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-md text-xs font-bold ${
-                        isUp ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
-                      }`}>
-                        {isUp ? '↑' : '↓'} {Math.abs(p.change_percent)}%
-                      </span>
-                    </div>
-                    <div className="space-y-1">
-                      <p className="text-sm text-gray-500">Base Rate: <span className="line-through">ETB {p.base_price}</span></p>
-                      <p className="text-3xl font-bold text-amber-700">ETB {p.recommended_price}</p>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          {/* SCHEDULE */}
-          {activeTab === 'schedule' && (
-            <div className="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-              <div className="px-6 py-5 border-b border-gray-100">
-                <h3 className="text-lg font-heading font-semibold text-coffee-900">7-Day Staff Optimization</h3>
-              </div>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm text-left">
-                  <thead className="bg-gray-50 text-gray-500 font-medium whitespace-nowrap">
-                    <tr>
-                      <th className="px-6 py-4">Date</th>
-                      <th className="px-6 py-4">Day</th>
-                      <th className="px-6 py-4">Est. Occupancy</th>
-                      <th className="px-6 py-4">Staff Req.</th>
-                      <th className="px-6 py-4">Shift Assignments</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-100">
-                    {schedule.map((s, i) => (
-                      <tr key={i} className="hover:bg-gray-50/50">
-                        <td className="px-6 py-4 font-medium text-gray-900">{s.date}</td>
-                        <td className="px-6 py-4 text-gray-600">{s.weekday}</td>
-                        <td className="px-6 py-4 text-gray-700 font-medium">{Math.round(s.occupancy * 100)}%</td>
-                        <td className="px-6 py-4 text-gray-600 font-medium">{s.staff_needed}</td>
-                        <td className="px-6 py-4">
-                          <div className="flex flex-wrap gap-2">
-                            {Object.entries(s.assignments || {}).map(([name, shift]) => (
-                              <span key={name} className="inline-flex items-center px-2 py-1 rounded bg-coffee-50 text-coffee-800 text-xs font-medium">
-                                {name} ({shift.split(' ')[0]})
-                              </span>
-                            ))}
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-widest">{v.villa}</p>
+                            <p className="text-[10px] text-gray-500 uppercase">{v.status}</p>
                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-          )}
-
-          {/* ALERTS */}
-          {activeTab === 'alerts' && (
-            <div className="space-y-4">
-              <div className="flex items-center justify-between px-1">
-                <h3 className="text-lg font-heading font-semibold text-coffee-900">Guest Feedback Alerts</h3>
-                <span className="text-sm font-medium text-gray-500">{alerts.length} unresolved issue(s)</span>
-              </div>
-              
-              {alerts.length === 0 ? (
-                <div className="bg-white p-12 rounded-2xl border border-gray-100 text-center shadow-sm">
-                  <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-green-50 text-green-500 mb-4">
-                    <CheckCircle2 size={32} />
-                  </div>
-                  <h4 className="text-lg font-heading font-medium text-gray-900">All caught up!</h4>
-                  <p className="text-gray-500 mt-1">There are no unresolved guest complaints.</p>
-                </div>
-              ) : (
-                <div className="grid gap-4">
-                  {alerts.map(a => (
-                    <div key={a.id} className="bg-red-50/50 border border-red-100 rounded-2xl p-6 flex flex-col sm:flex-row gap-4 justify-between sm:items-start">
-                      <div className="flex gap-4">
-                        <div className="text-red-500 shrink-0"><AlertCircle size={24} /></div>
-                        <div>
-                          <div className="flex items-center gap-3 mb-1">
-                            <span className="font-semibold text-gray-900">Room {a.room_number}</span>
-                            <span className="text-xs text-gray-500">{new Date(a.timestamp).toLocaleString()}</span>
-                          </div>
-                          <p className="text-gray-700 leading-relaxed">"{a.message}"</p>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-sm font-black text-amber-500">{v.engagement}%</p>
                         </div>
                       </div>
-                      <button 
-                        onClick={() => resolveAlert(a.id)}
-                        className="bg-white border border-gray-200 text-gray-700 hover:text-green-600 px-4 py-2 rounded-lg text-sm font-medium transition-colors shadow-sm"
-                      >
-                        Mark Resolved
-                      </button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
-              )}
-            </div>
-          )}
-        </motion.div>
-      </AnimatePresence>
+              </div>
+            )}
+
+            {/* REVENUE & YIELD INTELLIGENCE */}
+            {activeTab === 'revenue' && (
+              <div className="lg:col-span-3 space-y-8">
+                {/* Yield Strategy Overview */}
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <MetricCard 
+                    label="RevPAR" 
+                    value={`ETB ${data.kpis.revpar.toLocaleString()}`} 
+                    trend={`Yield: ${data.kpis.yield_index}%`} 
+                    icon={Target}
+                    color="blue"
+                  />
+                  <MetricCard 
+                    label="ADR" 
+                    value={`ETB ${data.kpis.adr.toLocaleString()}`} 
+                    trend="Market Average: +15%" 
+                    icon={DollarSign}
+                    color="amber"
+                  />
+                  <MetricCard 
+                    label="Service Forecast" 
+                    value={`ETB ${data.revenue.service_revenue.toLocaleString()}`} 
+                    trend="High Demand" 
+                    icon={Zap}
+                    color="rose"
+                  />
+                  <MetricCard 
+                    label="Total Daily Goal" 
+                    value="92%" 
+                    trend="On Track" 
+                    icon={Activity}
+                    color="blue"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                   {/* Dynamic Pricing AI Analysis */}
+                   <div className="lg:col-span-2 bg-white/5 border border-white/10 p-8 rounded-[3rem] backdrop-blur-3xl">
+                      <div className="flex items-center justify-between mb-8">
+                         <h3 className="text-xl font-heading font-bold flex items-center gap-3">
+                            <BrainCircuit className="text-amber-500" />
+                            Market Intelligence & AI Pricing Strategy
+                         </h3>
+                         <div className="flex gap-2">
+                           <span className="bg-amber-500/10 text-amber-500 px-3 py-1 rounded-full text-[10px] font-black border border-amber-500/20 uppercase tracking-widest">Live Optimization</span>
+                         </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                         <div className="space-y-6">
+                            <div className="p-6 rounded-3xl bg-white/5 border border-white/10">
+                               <p className="text-[10px] font-black text-gray-400 uppercase mb-2 tracking-widest">AI Reasoning</p>
+                               <p className="text-lg font-bold text-white mb-4 italic">"{data.pricing_recommendation.direction === 'increase' ? 'Higher demand detected due to weekend surge and festival proximity. Increasing rates to capture maximum value.' : 'Occupancy is below 50%. Activating flash discounts to drive last-minute bookings.'}"</p>
+                               <div className="flex items-center gap-4">
+                                  <div className="flex-1">
+                                     <div className="flex justify-between text-[10px] font-black uppercase text-gray-500 mb-1">
+                                        <span>Market Demand</span>
+                                        <span>{data.pricing_recommendation.occupancy_rate * 100}%</span>
+                                     </div>
+                                     <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                        <div className="h-full bg-amber-500" style={{ width: `${data.pricing_recommendation.occupancy_rate * 100}%` }} />
+                                     </div>
+                                  </div>
+                               </div>
+                            </div>
+                            
+                            <div className="space-y-4">
+                               <h4 className="text-xs font-black uppercase text-amber-500 tracking-widest">Optimal Rate vs Competitor</h4>
+                               <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5">
+                                  <span className="text-xs font-bold">Kuriftu Dynamic Rate</span>
+                                  <span className="text-lg font-black text-white">ETB {data.pricing_recommendation.recommended_price.toLocaleString()}</span>
+                                </div>
+                                <div className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 opacity-50">
+                                  <span className="text-xs font-bold">Local Market Avg</span>
+                                  <span className="text-lg font-black text-gray-400">ETB 180,000</span>
+                                </div>
+                            </div>
+                         </div>
+
+                         <div className="bg-stone-900/50 p-6 rounded-3xl border border-white/10">
+                            <h4 className="text-xs font-black uppercase text-amber-500 tracking-widest mb-6 border-b border-white/5 pb-4">Service Yield Management</h4>
+                            <div className="space-y-6">
+                               {Object.entries(data.service_pricing).map(([name, prices]) => (
+                                 <div key={name} className="flex flex-col gap-2">
+                                    <div className="flex justify-between items-center text-[10px] font-black text-gray-500 uppercase tracking-widest">
+                                       <span>{name}</span>
+                                       <span className={prices.optimized < prices.base ? 'text-green-400' : 'text-amber-400'}>
+                                          {prices.optimized < prices.base ? 'Flash Discount' : 'Standard Yield'}
+                                       </span>
+                                    </div>
+                                    <div className="flex items-center justify-between">
+                                       <span className="text-sm font-bold text-gray-400 line-through">ETB {prices.base}</span>
+                                       <div className="flex items-center gap-2">
+                                          <ArrowUpRight size={14} className={prices.optimized < prices.base ? 'rotate-90 text-green-400' : 'text-amber-400'} />
+                                          <span className="text-xl font-black text-white">ETB {prices.optimized}</span>
+                                       </div>
+                                    </div>
+                                 </div>
+                               ))}
+                            </div>
+                         </div>
+                      </div>
+                   </div>
+
+                   <div className="bg-gradient-to-br from-amber-600/10 to-transparent border border-white/10 p-8 rounded-[3rem] backdrop-blur-3xl flex flex-col justify-between">
+                      <div>
+                        <div className="w-16 h-16 bg-amber-500 rounded-3xl flex items-center justify-center text-black mb-8 shadow-2xl shadow-amber-500/20">
+                           <Target size={32} />
+                        </div>
+                        <h3 className="text-2xl font-heading font-black mb-4 uppercase tracking-tighter">Profit Prediction</h3>
+                        <p className="text-gray-400 text-sm leading-relaxed mb-6">Our AI predicts a total revenue of <span className="text-white font-bold">ETB {(data.revenue.today_total * 30 * 0.9).toLocaleString()}</span> for the next 30 days based on current market velocity.</p>
+                        <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-xs text-amber-500/80 font-bold italic">
+                           "Tip: Occupancy surcharges are currently offsetting low service bookings."
+                        </div>
+                      </div>
+                      <button className="mt-8 bg-white text-black py-5 rounded-[2rem] font-black uppercase tracking-[0.2em] text-[10px] hover:bg-amber-500 transition-all">Download P&L Report</button>
+                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* GUESTS CONTENT */}
+            {activeTab === 'guests' && (
+              <div className="lg:col-span-3 flex flex-col gap-6">
+                <div className="bg-white/5 border border-white/10 p-12 rounded-[3.5rem] text-center backdrop-blur-2xl border-t-amber-500/20">
+                  <div className="w-20 h-20 bg-amber-500/20 text-amber-500 rounded-3xl flex items-center justify-center mb-8 mx-auto rotate-12 rotate-shadow shadow-amber-500/20">
+                    <Users size={40} />
+                  </div>
+                  <h3 className="text-3xl font-heading font-black tracking-tight mb-4">Guest Heritage Intelligence</h3>
+                  <p className="text-gray-400 max-w-2xl mx-auto leading-relaxed mb-8">
+                    Our AI is currently curating unique cultural journeys for {data.occupancy.occupied} villas. 
+                    We are bridging the gap between property-wide consistency and individual villa country identity.
+                  </p>
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-3xl mx-auto">
+                    {Object.entries(data.guest_segments).map(([name, count]) => (
+                      <div key={name} className="p-6 rounded-[2rem] bg-white/5 border border-white/5">
+                        <p className="text-xs font-black uppercase text-amber-500 mb-1">{name}</p>
+                        <p className="text-2xl font-black">{count}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </motion.div>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
 
-function KPICard({ title, value, sub, color }) {
+function MetricCard({ label, value, trend, isUp, icon: Icon, color }) {
+  const colorMap = {
+    amber: 'ring-amber-500/20 text-amber-500 bg-amber-500/5',
+    blue: 'ring-blue-500/20 text-blue-500 bg-blue-500/5',
+    rose: 'ring-rose-500/20 text-rose-500 bg-rose-500/5',
+  };
+
   return (
-    <div className={`bg-white p-6 rounded-2xl border border-gray-100 border-t-4 ${color} shadow-sm hover:shadow-md transition-shadow`}>
-      <h4 className="text-sm font-medium text-gray-500 mb-2">{title}</h4>
-      <div className="text-3xl font-heading font-bold text-coffee-900 mb-1">{value}</div>
-      <p className="text-xs text-gray-400">{sub}</p>
+    <div className={`p-6 rounded-[2rem] border border-white/10 backdrop-blur-3xl ring-1 ${colorMap[color]} shadow-2xl`}>
+      <div className="flex justify-between items-start mb-6">
+        <div className="p-3 bg-white/5 rounded-2xl">
+          <Icon size={20} />
+        </div>
+        <div className={`px-2 py-0.5 rounded-full text-[10px] font-black uppercase ${isUp ? 'bg-green-500/20 text-green-400' : 'bg-white/10 text-gray-500'}`}>
+          {trend}
+        </div>
+      </div>
+      <h4 className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1">{label}</h4>
+      <p className="text-2xl font-heading font-black tracking-tighter text-white">{value}</p>
+    </div>
+  );
+}
+
+function AutomationItem({ title, desc, impact }) {
+  return (
+    <div className="group p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/[0.07] transition-all cursor-pointer">
+      <div className="flex justify-between items-start">
+        <div className="space-y-1">
+          <h4 className="text-sm font-bold flex items-center gap-2">
+            {title}
+            <ChevronRight size={14} className="opacity-0 group-hover:opacity-100 transition-all text-amber-500" />
+          </h4>
+          <p className="text-[10px] text-gray-500 leading-tight">{desc}</p>
+        </div>
+        <span className="text-[9px] font-black px-2 py-0.5 rounded bg-amber-500/20 text-amber-500">{impact}</span>
+      </div>
+    </div>
+  );
+}
+
+function PricingInsightCard({ title, current, label, desc }) {
+  return (
+    <div className="bg-white/5 border border-white/10 p-8 rounded-[2.5rem] backdrop-blur-2xl ring-1 ring-white/5 flex flex-col justify-between">
+      <div>
+        <h3 className="text-[10px] font-black text-amber-500 uppercase tracking-widest mb-6">{title}</h3>
+        <p className="text-4xl font-heading font-black tracking-tighter mb-1">ETB {current.toLocaleString()}</p>
+        <p className="text-xs text-gray-400 font-bold uppercase tracking-tighter">{label}</p>
+      </div>
+      <p className="text-xs text-gray-500 leading-relaxed border-t border-white/10 pt-4 mt-8 italic">"{desc}"</p>
     </div>
   );
 }

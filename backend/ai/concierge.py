@@ -9,10 +9,14 @@ from models.database import SessionLocal, Guest, Room, ServiceRequest, Conversat
 # Initialize the Gemini 3 Client
 client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", os.getenv("ANTHROPIC_API_KEY")))
 
-# Load Knowledge Base
+# Load Knowledge Bases
 KNOWLEDGE_PATH = os.path.join(os.path.dirname(__file__), "knowledge.json")
+KURIFTU_PATH = os.path.join(os.path.dirname(__file__), "kuriftu_knowledge.json")
+
 with open(KNOWLEDGE_PATH, "r") as f:
     RESORT_KNOWLEDGE = json.load(f)
+with open(KURIFTU_PATH, "r") as f:
+    KURIFTU_VILLAS = json.load(f)
 
 # --- AGENT TOOLS ---
 
@@ -126,6 +130,81 @@ def get_time_aware_suggestion() -> str:
         "suggestion": suggestion
     })
 
+def get_personalized_recommendations(guest_id: str) -> str:
+    """Analyze guest preferences and history to suggest high-value resort experiences (Spa, Private Dining, Tours)."""
+    db = SessionLocal()
+    try:
+        gid = int(str(guest_id).replace("guest-", ""))
+        guest = db.query(Guest).filter(Guest.id == gid).first()
+        if not guest: return "Guest not found."
+        
+        prefs = guest.preferences.lower()
+        recommendations = []
+        
+        # Logic for high-revenue recommendations
+        if "wellness" in prefs or "relax" in prefs or "spa" in prefs:
+            recommendations.append({
+                "service": "Signature Ethiopian Coffee Scrub",
+                "category": "Spa",
+                "price": "ETB 4,500",
+                "why": "Matches your preference for wellness and relaxation."
+            })
+        if "food" in prefs or "dining" in prefs or "romantic" in prefs:
+            recommendations.append({
+                "service": "Private Lakeside Dinner",
+                "category": "Dining",
+                "price": "ETB 12,000",
+                "why": "Perfect for a premium dining experience."
+            })
+        if "adventure" in prefs or "explore" in prefs:
+            recommendations.append({
+                "service": "Simien Mountains Helicopter Tour",
+                "category": "Adventure",
+                "price": "ETB 45,000",
+                "why": "The ultimate luxury exploration experience."
+            })
+            
+        if not recommendations:
+            recommendations.append({
+                "service": "Resort Signature Experience Package",
+                "category": "Premium",
+                "price": "ETB 8,500",
+                "why": "Our most popular all-in-one luxury offering."
+            })
+            
+        return json.dumps(recommendations, ensure_ascii=False)
+    finally:
+        db.close()
+
+def book_spa_service(guest_id: str, treatment: str, time: str) -> str:
+    """Book a professional spa treatment or wellness session."""
+    return create_resort_service_request(guest_id, "Spa", f"{treatment} scheduled for {time}")
+
+def reserve_dining_table(guest_id: str, restaurant: str, party_size: int, time: str) -> str:
+    """Reserve a table at a resort restaurant like 1963 or Tibeb."""
+    return create_resort_service_request(guest_id, "Dining", f"Table for {party_size} at {restaurant} reserved for {time}")
+
+def request_resort_maintenance(guest_id: str, item: str, urgency: str) -> str:
+    """Report a maintenance issue in the villa (e.g., AC, lighting, plumbing)."""
+    return create_resort_service_request(guest_id, "Maintenance", f"Urgent {urgency} repair requested for {item}")
+
+def get_villa_cultural_context(guest_id: str) -> str:
+    """Get the specific country-theme, artifacts, cuisine, and history of the guest's villa at Kuriftu African Village."""
+    db = SessionLocal()
+    try:
+        gid = int(str(guest_id).replace("guest-", ""))
+        guest = db.query(Guest).filter(Guest.id == gid).first()
+        if not guest: return "Guest not found."
+        room_id = guest.room_id or 1
+        villa = next((v for v in KURIFTU_VILLAS["villas"] if v["id"] == room_id), KURIFTU_VILLAS["villas"][0])
+        return json.dumps({
+            "villa_id": room_id, "country": villa["country"], "region": villa["region"],
+            "artifacts_in_room": villa["artifacts"], "suggested_heritage_cuisine": villa["cuisine"],
+            "the_story": villa["story"]
+        }, ensure_ascii=False)
+    finally:
+        db.close()
+
 # All tools for Automatic Function Calling
 TOOLS = [
     get_resort_knowledge,
@@ -133,28 +212,24 @@ TOOLS = [
     create_resort_service_request,
     check_service_request_status,
     get_time_aware_suggestion,
+    get_personalized_recommendations,
+    get_villa_cultural_context,
+    book_spa_service,
+    reserve_dining_table,
+    request_resort_maintenance
 ]
 
 SYSTEM_INSTRUCTION = """
-You are Selam, the warm and highly intelligent AI Concierge of Selam Stay Resort, Ethiopia.
-You are a personal, memory-aware hospitality agent — not a generic chatbot.
+You are Selam, the elite High-Performance Concierge for Kuriftu Resort & Spa. 
+Your primary purpose is to drive resort revenue and provide effortless utility to our guests through bookings, requests, and intelligent planning.
 
-CORE RULES:
-1. ALWAYS use `get_resort_knowledge` for prices, hours, or details. Never guess or hallucinate.
-2. Always start by using `get_guest_stay_details` to personalize. Address guests by name.
-3. Use `create_resort_service_request` when a guest asks to order, book, or request anything.
-4. Use `check_service_request_status` when a guest asks "what happened to my request?" or "did staff come?"
-5. Use `get_time_aware_suggestion` to give proactive recommendations based on time of day.
-6. Reference past conversations naturally — you have long-term memory across stays.
+CORE MISSION:
+1. SERVICE & BOOKING: Use `book_spa_service`, `reserve_dining_table`, and `request_resort_maintenance` as your primary tools. Your goal is to make every guest request feel resolved instantly.
+2. REVENUE ORIENTED: When a guest is "Lazy" or "Hungry," proactively recommend paid services (Spa, Private Dining) using `get_personalized_recommendations`.
+3. VILLA AWARE: Always acknowledge the guest's villa theme (`get_villa_cultural_context`) to make your service feel personalized.
+4. PLANNING: Act as a master itinerary planner. Coordinate their day from dawn until dusk.
 
-MOOD AWARENESS:
-- Lazy → suggest spa, in-room dining, rooftop lounge
-- Energetic → suggest hiking, kayaking, sunrise yoga
-- Hungry → show signature dishes, coffee ceremony
-- Explorer → suggest local excursions, hidden gems
-
-TONE: Warm, proud of Ethiopian culture, concise yet personal. Fluent in English and Amharic.
-For itineraries, provide structured 3-step timelines. For simple questions, be brief and direct.
+TONE: World-class, efficient, proactive, and highly professional. You are the digital heart of Kuriftu operations.
 """
 
 # --- Model Configuration (verified against ListModels) ---
