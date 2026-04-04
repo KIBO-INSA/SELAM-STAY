@@ -1,6 +1,10 @@
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api' });
+/** Host root (no path). Empty → relative `/api` and Vite dev proxy. */
+const apiRoot = (import.meta.env.VITE_API_URL ?? '').trim().replace(/\/+$/, '');
+export const API_PREFIX = apiRoot ? `${apiRoot}/api` : '/api';
+
+const api = axios.create({ baseURL: API_PREFIX });
 
 export const conciergeAPI = {
   chat:      (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),

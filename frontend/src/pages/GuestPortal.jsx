@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import LocalDiscovery from '../components/LocalDiscovery';
 import ExperienceFeedback from '../components/ExperienceFeedback';
+import { API_PREFIX } from '../services/api';
 
 const GUEST = { name: "Abebe", id: "guest-1", loyalty: "Gold Member" };
 
@@ -89,7 +90,7 @@ export default function GuestPortal({ setGlobalMood }) {
   const [isStoryOpen, setIsStoryOpen] = useState(false);
 
   useEffect(() => {
-    fetch(`/api/dashboard/guest/villa-theme/${GUEST.id}`)
+    fetch(`${API_PREFIX}/dashboard/guest/villa-theme/${GUEST.id}`)
       .then(res => res.json())
       .then(data => setVillaTheme(data))
       .catch(err => console.error("Could not fetch villa theme", err));
