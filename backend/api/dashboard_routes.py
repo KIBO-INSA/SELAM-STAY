@@ -59,7 +59,10 @@ async def dashboard_summary(db: Session = Depends(get_db)):
 
     sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
     for f in feedbacks:
-        sentiment_counts[f.sentiment] = sentiment_counts.get(f.sentiment, 0) + 1
+        key = (getattr(f, "sentiment", None) or "neutral")
+        if key not in sentiment_counts:
+            key = "neutral"
+        sentiment_counts[key] = sentiment_counts.get(key, 0) + 1
 
     # Advanced Revenue Metrics
     num_rooms = total_rooms if total_rooms > 0 else 1
@@ -76,6 +79,19 @@ async def dashboard_summary(db: Session = Depends(get_db)):
         "Signature Coffee Scrub": {"base": 80, "optimized": round(80 * yield_multiplier, 2)},
         "Lakeside Dinner Package": {"base": 120, "optimized": round(120 * yield_multiplier, 2)},
         "Simien Helicopter Tour": {"base": 500, "optimized": round(500 * yield_multiplier, 2)},
+    }
+
+    # Service revenue snapshot (no per-request pricing stored yet)
+    service_rev = 0.0
+
+    # Guest segments (simple, DB-backed counts)
+    guests = db.query(Guest).all()
+    in_house = [g for g in guests if g.check_out is None]
+    segments = {
+        "in_house": len(in_house),
+        "total_guests": len(guests),
+        "language_en": sum(1 for g in guests if (g.language or "").lower() == "en"),
+        "language_am": sum(1 for g in guests if (g.language or "").lower() == "am"),
     }
 
     # Predictive Revenue (30-day forecast simulation)
@@ -102,6 +118,8 @@ async def dashboard_summary(db: Session = Depends(get_db)):
         },
         "revenue": {
             "today_total":    round(revenue_today + service_rev, 2),
+            # Back-compat for frontend (expects today_etb)
+            "today_etb":      round(revenue_today + service_rev, 2),
             "room_revenue":   round(revenue_today, 2),
             "service_revenue": round(service_rev, 2),
             "forecast":       forecast,

@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from models.database import get_db, ServiceRequest
+from models.database import get_db, ServiceRequest, Staff
 from pydantic import BaseModel
 from datetime import datetime
 
@@ -43,24 +43,43 @@ def create_service_request(req: ServiceRequestCreate, db: Session = Depends(get_
 
 
 @router.get("/guest/{guest_id}")
-def get_guest_requests(guest_id: int, db: Session = Depends(get_db)):
+def get_guest_requests(guest_id: str, db: Session = Depends(get_db)):
     """Get all service requests for a guest."""
+    try:
+        gid = int(str(guest_id).replace("guest-", ""))
+    except Exception:
+        raise HTTPException(status_code=400, detail="Invalid guest_id")
+
     requests = db.query(ServiceRequest).filter(
-        ServiceRequest.guest_id == guest_id
+        ServiceRequest.guest_id == gid
     ).order_by(ServiceRequest.created_at.desc()).all()
 
-    return [
-        {
-            "id": r.id,
-            "category": r.category,
-            "description": r.description,
-            "status": r.status,
-            "priority": r.priority,
-            "created_at": r.created_at.isoformat() if r.created_at else None,
-            "updated_at": r.updated_at.isoformat() if r.updated_at else None,
-        }
-        for r in requests
-    ]
+    staff_by_id = {s.id: s for s in db.query(Staff).all()}
+
+    results = []
+    for r in requests:
+        staff = staff_by_id.get(r.assigned_staff_id) if r.assigned_staff_id else None
+        results.append(
+            {
+                "id": r.id,
+                "category": r.category,
+                "description": r.description,
+                "status": r.status,
+                "priority": r.priority,
+                "assigned_at": r.assigned_at.isoformat() if r.assigned_at else None,
+                "assignment_reason": r.assignment_reason,
+                "assigned_staff": {
+                    "id": staff.id,
+                    "name": staff.name,
+                    "role": staff.role,
+                }
+                if staff
+                else ({"id": r.assigned_staff_id} if r.assigned_staff_id else None),
+                "created_at": r.created_at.isoformat() if r.created_at else None,
+                "updated_at": r.updated_at.isoformat() if r.updated_at else None,
+            }
+        )
+    return results
 
 
 @router.post("/{request_id}/status")
@@ -75,3 +94,35 @@ def update_request_status(request_id: int, update: ServiceStatusUpdate, db: Sess
     db.commit()
 
     return {"id": req.id, "status": req.status, "message": "Status updated"}
+
+
+@router.get("/assignments/recent")
+def recent_assignments(db: Session = Depends(get_db)):
+    """Recent auto-assignments for manager visibility."""
+    reqs = (
+        db.query(ServiceRequest)
+        .filter(ServiceRequest.assigned_staff_id != None)
+        .order_by(ServiceRequest.assigned_at.desc())
+        .limit(20)
+        .all()
+    )
+
+    # Preload staff names
+    staff_by_id = {s.id: s for s in db.query(Staff).all()}
+
+    results = []
+    for r in reqs:
+        staff = staff_by_id.get(r.assigned_staff_id)
+        results.append({
+            "request_id": r.id,
+            "category": r.category,
+            "status": r.status,
+            "assigned_at": r.assigned_at.isoformat() if r.assigned_at else None,
+            "reason": r.assignment_reason,
+            "staff": {
+                "id": staff.id if staff else r.assigned_staff_id,
+                "name": staff.name if staff else None,
+                "role": staff.role if staff else None,
+            },
+        })
+    return results

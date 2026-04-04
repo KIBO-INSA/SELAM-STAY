@@ -23,7 +23,9 @@ const MOOD_OPENERS = {
 };
 
 export default function SelamBot({ guestId = 'guest-1', mood }) {
-  const [messages, setMessages]     = useState([{ role: 'assistant', text: WELCOME }]);
+  const [messages, setMessages]     = useState([]);
+  const [historyLoaded, setHistoryLoaded] = useState(false);
+  const [hasHistory, setHasHistory] = useState(false);
   const [input, setInput]           = useState('');
   const [loading, setLoading]       = useState(false);
   const [isListening, setIsListening] = useState(false);
@@ -34,7 +36,50 @@ export default function SelamBot({ guestId = 'guest-1', mood }) {
   const recognitionRef      = useRef(null);
   const hasProactivelyAsked = useRef(false);
   const hasFetchedProactive = useRef(false);
+  const hasAutoSentIntent    = useRef(false);
   const synth               = useRef(window.speechSynthesis);
+
+  // ── Load persisted conversation history ──────────────────────────────
+  useEffect(() => {
+    let cancelled = false;
+    conciergeAPI.history(guestId, 50)
+      .then(res => {
+        if (cancelled) return;
+        const msgs = (res?.data?.messages || []).flatMap(m => {
+          const role = m.role === 'user' ? 'user' : 'assistant';
+          const text = String(m.message || '');
+          // Back-compat: older server versions embedded "Recommendation:" in the reply.
+          const parts = text.split('\n\nRecommendation: ');
+          if (parts.length === 2) {
+            return [
+              { role, text: parts[0] },
+              { role: 'assistant', text: `Suggestion: ${parts[1]}` },
+            ];
+          }
+          return [{ role, text }];
+        });
+
+        if (msgs.length > 0) {
+          setMessages(msgs);
+          setHasHistory(true);
+          setHistoryLoaded(true);
+          return;
+        }
+        setMessages([{ role: 'assistant', text: WELCOME }]);
+        setHasHistory(false);
+        setHistoryLoaded(true);
+      })
+      .catch(() => {
+        // If history fails, fall back to the existing welcome.
+        if (!cancelled) {
+          setMessages([{ role: 'assistant', text: WELCOME }]);
+          setHasHistory(false);
+          setHistoryLoaded(true);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [guestId]);
 
   // ── TTS: speak a message ──────────────────────────────────────────────
   const speak = useCallback((text) => {
@@ -66,15 +111,19 @@ export default function SelamBot({ guestId = 'guest-1', mood }) {
 
   // ── Intent Handling: Handle deep-linked actions from Portal ──────
   useEffect(() => {
+    if (hasAutoSentIntent.current) return;
+    if (!historyLoaded || hasHistory || loading) return;
+    if (messages.length !== 1) return;
+
     const params = new URLSearchParams(window.location.search);
     const intent = params.get('intent');
-    if (intent && !loading && messages.length === 1) {
-      // Small delay to ensure greeting finishes
-      setTimeout(() => send(intent), 500);
-      // Clean up URL
-      window.history.replaceState({}, document.title, "/");
-    }
-  }, []);
+    if (!intent) return;
+
+    hasAutoSentIntent.current = true;
+    // Small delay to ensure welcome renders
+    setTimeout(() => send(intent), 300);
+    window.history.replaceState({}, document.title, "/");
+  }, [historyLoaded, hasHistory, loading, messages.length]);
 
   // ── Mood-Based Proactive Message ──────────────────────────────────────
   useEffect(() => {
@@ -128,7 +177,22 @@ export default function SelamBot({ guestId = 'guest-1', mood }) {
     try {
       const res = await conciergeAPI.chat(guestId, text);
       const reply = res.data.reply;
-      setMessages(prev => [...prev, { role: 'assistant', text: reply }]);
+      const recommendation = res.data.recommendation;
+      const refId = res.data.ref_id;
+      const assignment = res.data.assignment;
+      setMessages(prev => {
+        const next = [...prev, { role: 'assistant', text: reply }];
+        if (refId) {
+          let extra = `Reference: #${refId}`;
+          if (assignment?.staff?.name) {
+            const role = assignment?.staff?.role ? ` (${assignment.staff.role})` : '';
+            extra += `\nAssigned to: ${assignment.staff.name}${role}`;
+          }
+          next.push({ role: 'assistant', text: extra });
+        }
+        if (recommendation) next.push({ role: 'assistant', text: `Suggestion: ${recommendation}` });
+        return next;
+      });
       speak(reply);
     } catch {
       const err = '⚠️ I encountered a small glitch. Please try again!';

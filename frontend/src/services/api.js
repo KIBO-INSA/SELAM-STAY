@@ -6,6 +6,7 @@ export const conciergeAPI = {
   chat:      (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),
   reset:     (guest_id)          => api.post('/concierge/reset', { guest_id }),
   proactive: (guest_id)          => api.get(`/concierge/proactive/${guest_id}`),
+  history:   (guest_id, limit = 30) => api.get(`/concierge/history/${guest_id}`, { params: { limit } }),
 };
 
 export const sentimentAPI = {
