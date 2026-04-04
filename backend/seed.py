@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from datetime import datetime, timedelta
-from models.database import init_db, SessionLocal, Guest, Room, Feedback, MaintenanceLog, Staff, InventoryItem
+from models.database import init_db, SessionLocal, Guest, Room, Feedback, MaintenanceLog, Staff, InventoryItem, ServiceRequest
 from ai.pricing import train_pricing_model
 from ai.sentiment import analyze_sentiment
 
@@ -22,14 +22,14 @@ def seed():
     # --- Rooms ---
     if db.query(Room).count() == 0:
         rooms = [
-            Room(room_number="101", type="Standard Room",  base_price=120, current_price=135, is_occupied=True),
-            Room(room_number="102", type="Standard Room",  base_price=120, current_price=120, is_occupied=False),
-            Room(room_number="201", type="Deluxe Suite",   base_price=220, current_price=265, is_occupied=True),
-            Room(room_number="202", type="Deluxe Suite",   base_price=220, current_price=220, is_occupied=False),
-            Room(room_number="301", type="Eco Cabin",      base_price=180, current_price=198, is_occupied=True),
-            Room(room_number="302", type="Eco Cabin",      base_price=180, current_price=180, is_occupied=True),
-            Room(room_number="401", type="Family Room",    base_price=160, current_price=185, is_occupied=False),
-            Room(room_number="402", type="Family Room",    base_price=160, current_price=160, is_occupied=True),
+            Room(room_number="101", type="Standard Room",  base_price=120, current_price=135, is_occupied=True,  currency="USD", exchange_rate=115.5),
+            Room(room_number="102", type="Standard Room",  base_price=120, current_price=120, is_occupied=False, currency="ETB", exchange_rate=1.0),
+            Room(room_number="201", type="Deluxe Suite",   base_price=220, current_price=265, is_occupied=True,  currency="USD", exchange_rate=115.5),
+            Room(room_number="202", type="Deluxe Suite",   base_price=220, current_price=220, is_occupied=False, currency="ETB", exchange_rate=1.0),
+            Room(room_number="301", type="Eco Cabin",      base_price=180, current_price=198, is_occupied=True,  currency="USD", exchange_rate=115.5),
+            Room(room_number="302", type="Eco Cabin",      base_price=180, current_price=180, is_occupied=True,  currency="ETB", exchange_rate=1.0),
+            Room(room_number="401", type="Family Room",    base_price=160, current_price=185, is_occupied=False, currency="USD", exchange_rate=115.5),
+            Room(room_number="402", type="Family Room",    base_price=160, current_price=160, is_occupied=True,  currency="ETB", exchange_rate=1.0),
         ]
         db.add_all(rooms)
         print("  ✅ Rooms seeded")
@@ -115,20 +115,29 @@ def seed():
     # --- Inventory ---
     if db.query(InventoryItem).count() == 0:
         inventory_data = [
-            ("Fresh Injera",   "Food",       20.0,  50.0,  "kg",    15.0,  "Local Bakery"),
-            ("Coffee Beans",   "Food",       15.0,  10.0,  "kg",    45.0,  "Kaffa Highlands"),
-            ("Bed Linens",     "Linens",     120.0, 100.0, "units", 250.0, "Hotel Supplies Co"),
-            ("Soap Bars",      "Toiletries", 45.0,  150.0, "units", 5.0,   "CleanStay Ltd"),
-            ("Disinfectant",   "Cleaning",   8.0,   20.0,  "liters", 12.0,  "EcoClean"),
-            ("Honey & Spices", "Food",       12.0,  5.0,   "kg",    30.0,  "Local Farm"),
+            ("Fresh Injera",   "Food",       20.0,  50.0,  "kg",    15.0,  "Local Bakery",       1),
+            ("Coffee Beans",   "Food",       15.0,  10.0,  "kg",    45.0,  "Kaffa Highlands",    2),
+            ("Bed Linens",     "Linens",     120.0, 100.0, "units", 250.0, "Hotel Supplies Co",  7),
+            ("Soap Bars",      "Toiletries", 45.0,  150.0, "units", 5.0,   "CleanStay Ltd",      5),
+            ("Disinfectant",   "Cleaning",   8.0,   20.0,  "liters", 12.0,  "EcoClean",           3),
+            ("Honey & Spices", "Food",       12.0,  5.0,   "kg",    30.0,  "Local Farm",         2),
         ]
-        for name, cat, stock, min_lvl, unit, cost, sup in inventory_data:
+        for name, cat, stock, min_lvl, unit, cost, sup, lead in inventory_data:
             db.add(InventoryItem(
                 name=name, category=cat, current_stock=stock, 
                 min_stock_level=min_lvl, unit_measure=unit, 
-                unit_cost=cost, supplier=sup
+                unit_cost=cost, supplier=sup, lead_time_days=lead
             ))
         print("  ✅ Inventory seeded")
+    
+    # --- Service Requests ---
+    if db.query(ServiceRequest).count() == 0:
+        requests = [
+            ServiceRequest(guest_id=1, room_number="101", category="Housekeeping", description="Extra towels", priority="low", currency="ETB", exchange_rate=1.0),
+            ServiceRequest(guest_id=2, room_number="201", category="Room Service", description="Dinner for two", priority="high", currency="USD", exchange_rate=115.5),
+        ]
+        db.add_all(requests)
+        print("  ✅ Service requests seeded")
 
     db.commit()
     db.close()

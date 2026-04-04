@@ -2,12 +2,43 @@ import os
 import json
 import anyio
 from datetime import datetime
-from google import genai
-from google.genai import types
 from models.database import SessionLocal, Guest, Room, ServiceRequest, ConversationHistory
+from services.fallback_answer_service import try_answer
 
-# Initialize the Gemini 3 Client
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY", os.getenv("ANTHROPIC_API_KEY")))
+try:
+    from google import genai
+    from google.genai import types
+except Exception:  # pragma: no cover
+    genai = None
+    types = None
+
+# Gemini client is initialized lazily.
+# IMPORTANT: Do not create the client at import time, because missing keys should not crash the API.
+_client = None
+
+
+def _get_client():
+    global _client
+    if _client is False:
+        return None
+    if _client is not None:
+        return _client
+
+    if genai is None:
+        _client = False
+        return None
+
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("ANTHROPIC_API_KEY")
+    if not api_key:
+        _client = False
+        return None
+
+    try:
+        _client = genai.Client(api_key=api_key)
+        return _client
+    except Exception:
+        _client = False
+        return None
 
 # Load Knowledge Bases
 KNOWLEDGE_PATH = os.path.join(os.path.dirname(__file__), "knowledge.json")
@@ -44,7 +75,8 @@ def get_guest_stay_details(guest_id: str) -> str:
             "room_type": room.type if room else "N/A",
             "language": guest.language,
             "check_in": str(guest.check_in),
-            "loyalty": "Gold Member"
+            "loyalty": "Gold Member",
+            "preferences": json.loads(guest.preferences) if guest.preferences else {}
         })
     finally:
         db.close()
@@ -137,42 +169,95 @@ def get_personalized_recommendations(guest_id: str) -> str:
         gid = int(str(guest_id).replace("guest-", ""))
         guest = db.query(Guest).filter(Guest.id == gid).first()
         if not guest: return "Guest not found."
-        
-        prefs = guest.preferences.lower()
+
+        # Parse structured JSON preferences saved from the AI Onboarding form
+        prefs = {}
+        if guest.preferences:
+            try:
+                prefs = json.loads(guest.preferences)
+            except Exception:
+                prefs = {}
+
+        occasion = prefs.get("occasion", "").lower()
+        dining_vibe = prefs.get("dining_vibe", "").lower()
+        dietary = prefs.get("dietary_restrictions", "").strip()
+
         recommendations = []
-        
-        # Logic for high-revenue recommendations
-        if "wellness" in prefs or "relax" in prefs or "spa" in prefs:
+
+        # --- Occasion-based recommendations ---
+        if occasion == "leisure":
             recommendations.append({
-                "service": "Signature Ethiopian Coffee Scrub",
+                "service": "Signature Ethiopian Coffee Scrub + Full Body Wrap",
+                "category": "Spa & Wellness",
+                "price": "ETB 5,500",
+                "why": "You are here for deep relaxation. This is our highest-rated wellness treatment."
+            })
+        elif occasion == "honeymoon":
+            recommendations.append({
+                "service": "Private Lakeside Candle Dinner for Two",
+                "category": "Romantic Dining",
+                "price": "ETB 15,000",
+                "why": "A carefully curated experience for couples — secluded, intimate, and unforgettable."
+            })
+            recommendations.append({
+                "service": "Couples Rose Petal Spa Ritual",
                 "category": "Spa",
-                "price": "ETB 4,500",
-                "why": "Matches your preference for wellness and relaxation."
+                "price": "ETB 9,000",
+                "why": "Our signature honeymoon treatment with champagne and aromatherapy."
             })
-        if "food" in prefs or "dining" in prefs or "romantic" in prefs:
+        elif occasion == "family":
             recommendations.append({
-                "service": "Private Lakeside Dinner",
-                "category": "Dining",
+                "service": "Kuriftu Water Park Full-Day Pass (Family of 4)",
+                "category": "Family Activities",
+                "price": "ETB 6,000",
+                "why": "The kids will love it. Our most popular family activity."
+            })
+            recommendations.append({
+                "service": "Ethiopian Cultural Cooking Class",
+                "category": "Family Experience",
+                "price": "ETB 3,500",
+                "why": "A hands-on cultural immersion experience the whole family can enjoy together."
+            })
+        elif occasion == "business":
+            recommendations.append({
+                "service": "Executive Meeting Room & Catering (Full Day)",
+                "category": "Business",
                 "price": "ETB 12,000",
-                "why": "Perfect for a premium dining experience."
+                "why": "Our premium workspace with fast Wi-Fi, projector, and included catering."
             })
-        if "adventure" in prefs or "explore" in prefs:
+
+        # --- Dining vibe based recommendations ---
+        if dining_vibe == "cultural":
             recommendations.append({
-                "service": "Simien Mountains Helicopter Tour",
-                "category": "Adventure",
-                "price": "ETB 45,000",
-                "why": "The ultimate luxury exploration experience."
+                "service": "Ethiopian Coffee Ceremony & Traditional Injera Feast",
+                "category": "Cultural Dining",
+                "price": "ETB 2,500",
+                "why": "You expressed interest in cultural immersion. This is the most authentic experience we offer."
             })
-            
+        elif dining_vibe == "premium":
+            recommendations.append({
+                "service": "1963 Restaurant – Chef's Tasting Menu",
+                "category": "Fine Dining",
+                "price": "ETB 8,500",
+                "why": "Our premium multi-course experience — matched to your dining preference."
+            })
+
+        # --- Dietary safety note ---
+        if dietary:
+            return json.dumps({
+                "dietary_flag": f"IMPORTANT: Guest has reported dietary restrictions: '{dietary}'. All recommendations above must be pre-screened with the kitchen.",
+                "recommendations": recommendations if recommendations else [{"service": "Chef Consultation", "category": "Safety", "price": "Complimentary", "why": f"Personalized menu created to match your dietary needs: {dietary}."}]
+            }, ensure_ascii=False)
+
         if not recommendations:
             recommendations.append({
                 "service": "Resort Signature Experience Package",
                 "category": "Premium",
                 "price": "ETB 8,500",
-                "why": "Our most popular all-in-one luxury offering."
+                "why": "Our most popular all-in-one luxury experience."
             })
-            
-        return json.dumps(recommendations, ensure_ascii=False)
+
+        return json.dumps({"recommendations": recommendations}, ensure_ascii=False)
     finally:
         db.close()
 
@@ -241,8 +326,22 @@ FALLBACK_MODEL2 = "gemini-2.0-flash-lite"   # Lightest, broadest quota
 _active_sessions: dict = {}
 
 
+def _deterministic_fallback(user_message: str) -> str:
+    answer = try_answer(user_message or "")
+    if answer:
+        return answer
+    return (
+        "I can help with towels, food delivery, housekeeping, maintenance, spa booking, late checkout, and today's schedule. "
+        "Tell me what you need (for example: 'Deliver 2 pizzas at 7 PM' or 'Book a massage tomorrow at 11 AM')."
+    )
+
+
 def _build_chat(guest_id: str, model: str):
     """Build a new SDK chat session loaded with DB history."""
+    client = _get_client()
+    if client is None:
+        return None
+
     db = SessionLocal()
     try:
         gid = int(str(guest_id).replace("guest-", ""))
@@ -279,14 +378,23 @@ def _get_or_create_session(guest_id: str):
     return _active_sessions[guest_id]
 
 
-async def chat_with_selam(guest_id: str, user_message: str) -> str:
+async def chat_with_selam(guest_id: str, user_message: str, *, db=None, persist: bool = True) -> str:
     """Send a message with automatic retry and model fallback on 503."""
     import time as _time
-    db = SessionLocal()
+
+    # If Gemini isn't configured/available, always return a deterministic fallback.
+    if _get_client() is None:
+        return _deterministic_fallback(user_message)
+
+    owns_db = db is None
+    if owns_db:
+        db = SessionLocal()
     try:
         gid = int(str(guest_id).replace("guest-", ""))
-        db.add(ConversationHistory(guest_id=gid, role="user", content=user_message))
-        db.commit()
+
+        if persist:
+            db.add(ConversationHistory(guest_id=gid, role="user", content=user_message))
+            db.commit()
 
         # Attempt chain: preview → 2.0-flash → 1.5-flash
         attempts = [
@@ -298,14 +406,26 @@ async def chat_with_selam(guest_id: str, user_message: str) -> str:
         for model, use_existing in attempts:
             try:
                 chat = _get_or_create_session(guest_id) if use_existing else _build_chat(guest_id, model)
+                if chat is None:
+                    return "⚠️ Selam AI is not available right now. I can still help with service requests (towels, food orders, housekeeping, maintenance, spa booking, late checkout)."
                 if not use_existing:
                     _active_sessions[guest_id] = chat
                     print(f"⚠️ Falling back to {model}")
 
-                response = await anyio.to_thread.run_sync(chat.send_message, user_message)
+                try:
+                    with anyio.fail_after(15):
+                        response = await anyio.to_thread.run_sync(
+                            chat.send_message,
+                            user_message,
+                            cancellable=True,
+                        )
+                except TimeoutError:
+                    print(f"Agentic timeout calling {model}")
+                    return _deterministic_fallback(user_message)
                 reply_text = response.text
-                db.add(ConversationHistory(guest_id=gid, role="assistant", content=reply_text))
-                db.commit()
+                if persist:
+                    db.add(ConversationHistory(guest_id=gid, role="assistant", content=reply_text))
+                    db.commit()
                 return reply_text
 
             except Exception as e:
@@ -316,15 +436,18 @@ async def chat_with_selam(guest_id: str, user_message: str) -> str:
                     _active_sessions.pop(guest_id, None)
                     await anyio.to_thread.run_sync(lambda: _time.sleep(1))
                     continue
-                raise  # non-transient errors bubble up
+                # Non-transient errors: fall back to deterministic behavior instead of failing.
+                print(f"Agentic non-transient error: {err[:120]}")
+                return _deterministic_fallback(user_message)
 
-        return "⚠️ All AI models are currently at capacity. Please try again in a minute!"
+        return _deterministic_fallback(user_message)
 
     except Exception as e:
         print(f"Agentic Error: {e}")
-        return "⚠️ Selam is momentarily unavailable. Please try again!"
+        return _deterministic_fallback(user_message)
     finally:
-        db.close()
+        if owns_db:
+            db.close()
 
 
 async def get_proactive_message(guest_id: str) -> str:

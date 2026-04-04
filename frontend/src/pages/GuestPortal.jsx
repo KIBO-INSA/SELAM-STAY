@@ -106,7 +106,7 @@ export default function GuestPortal({ setGlobalMood }) {
   const t = CONTENT[lang];
 
   return (
-    <div className="flex-1 bg-stone-50 overflow-x-hidden pt-20">
+    <div className="flex-1 bg-stone-50 overflow-x-hidden">
       
       {/* Hero Section */}
       <div className="relative h-[65vh] w-full overflow-hidden">

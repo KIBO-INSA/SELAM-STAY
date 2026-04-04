@@ -13,6 +13,7 @@ from api.dashboard_routes   import router as dashboard_router
 from api.inventory_routes   import router as inventory_router
 from api.room_controls_routes import router as room_controls_router
 from api.service_routes     import router as service_router
+from api.guest_routes       import router as guest_router
 from models.database        import init_db
 
 app = FastAPI(
@@ -43,6 +44,7 @@ app.include_router(dashboard_router,   prefix="/api/dashboard",   tags=["Dashboa
 app.include_router(inventory_router,   prefix="/api/inventory",     tags=["Smart Inventory"])
 app.include_router(room_controls_router, prefix="/api/room-controls", tags=["Room Controls"])
 app.include_router(service_router,     prefix="/api/services",      tags=["Service Requests"])
+app.include_router(guest_router,       prefix="/api/guest",         tags=["Guest Profiles"])
 
 
 @app.get("/")

@@ -15,20 +15,39 @@ import {
 
 const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 
+
 export default function Dashboard() {
-  const [data,       setData]    = useState(null);
-  const [loading,    setLoading] = useState(true);
-  const [activeTab,  setActiveTab] = useState('overview');
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error,      setError]   = useState(null);
+  const [activeTab, setActiveTab] = useState('overview');
+  const [tasks,      setTasks]   = useState([]);
+  const [tasksError, setTasksError] = useState(null);
+  const [currency, setCurrency] = useState('ETB');
+  const [selectedProperty, setSelectedProperty] = useState('African Village');
 
   useEffect(() => {
     refreshData();
-  }, []);
+  }, [selectedProperty]);
 
-  const refreshData = () => {
+  const refreshData = async () => {
     setLoading(true);
-    dashboardAPI.summary()
-      .then(res => setData(res.data))
-      .finally(() => setLoading(false));
+    try {
+    setTasksError(null);
+      const res = await dashboardAPI.summary(selectedProperty);
+      setData(res.data);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+
+    dashboardAPI.tasks()
+      .then(res => setTasks(res.data?.tasks || []))
+      .catch(err => {
+        setTasksError(err);
+        setTasks([]);
+      });
   };
 
   if (loading && !data) {
@@ -48,6 +67,31 @@ export default function Dashboard() {
     );
   }
 
+  if (!data) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0a0b] text-white gap-4">
+        <div className="text-rose-400">
+          <AlertCircle size={48} />
+        </div>
+        <h2 className="text-xl font-heading font-bold tracking-widest uppercase">
+          Dashboard data unavailable
+        </h2>
+        <p className="text-sm text-gray-400 max-w-xl text-center">
+          The server returned an error for <span className="text-gray-300">/api/dashboard/summary</span>. Please try again.
+        </p>
+        <button
+          onClick={refreshData}
+          className="px-5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+        >
+          Retry
+        </button>
+        {error ? (
+          <p className="text-xs text-gray-500">{String(error?.message || error)}</p>
+        ) : null}
+      </div>
+    );
+  }
+
   return (
     <div className="flex-1 bg-[#0a0a0b] text-white selection:bg-amber-500/30 min-h-screen">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
@@ -57,11 +101,22 @@ export default function Dashboard() {
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-amber-500 font-bold tracking-wider text-xs uppercase">
               <Sparkles size={14} />
-              <span>Pan-African Intelligence Hub</span>
+              <span>Multi-Property Intelligence Hub</span>
             </div>
-            <h1 className="text-4xl font-heading font-black tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
-              Kuriftu <span className="text-amber-500 italic">African Village</span>
-            </h1>
+            <div className="flex items-center gap-4">
+              <h1 className="text-4xl font-heading font-black tracking-tight bg-gradient-to-r from-white to-gray-500 bg-clip-text text-transparent">
+                Kuriftu <span className="text-amber-500 italic">Enterprise</span>
+              </h1>
+              <select
+                value={selectedProperty}
+                onChange={(e) => setSelectedProperty(e.target.value)}
+                className="bg-[#18181b] border border-white/20 text-white rounded-xl px-4 py-2 text-sm font-bold focus:outline-none focus:border-amber-500 focus:ring-1 focus:ring-amber-500 transition-all cursor-pointer"
+              >
+                <option value="African Village">African Village</option>
+                <option value="Bishoftu">Bishoftu Water Park</option>
+                <option value="Entoto">Entoto Adventure</option>
+              </select>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
@@ -91,17 +146,22 @@ export default function Dashboard() {
 
         {/* Global AI Metrics */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="relative group cursor-pointer" onClick={() => setCurrency(currency === 'ETB' ? 'USD' : 'ETB')}>
+            <MetricCard 
+              label={`Total Daily Revenue (${currency})`} 
+              value={`${currency} ${currency === 'ETB' ? data.revenue.today_total_etb.toLocaleString() : data.revenue.today_total_usd.toLocaleString()}`} 
+              trend="Click to Toggle" 
+              isUp={true}
+              icon={DollarSign}
+              color="amber"
+            />
+            <div className="absolute -top-2 -right-2 bg-amber-500 text-black text-[8px] font-black px-2 py-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity uppercase tracking-tighter">
+              Switch to {currency === 'ETB' ? 'USD' : 'ETB'}
+            </div>
+          </div>
           <MetricCard 
-            label="Total Daily Revenue" 
-            value={`ETB ${data.revenue.today_etb.toLocaleString()}`} 
-            trend="+12.5%" 
-            isUp={true}
-            icon={DollarSign}
-            color="amber"
-          />
-          <MetricCard 
-            label="Cultural Engagement" 
-            value={`${data.cultural_performance.reduce((acc, curr) => acc + curr.engagement, 0) / data.cultural_performance.length}%`} 
+            label="Experience Engagement" 
+            value={`${data.property_performance.reduce((acc, curr) => acc + curr.engagement, 0) / data.property_performance.length}%`} 
             trend="Active" 
             icon={Map}
             color="blue"
@@ -115,9 +175,9 @@ export default function Dashboard() {
             color="rose"
           />
           <MetricCard 
-            label="Experience Gaps" 
-            value={data.cultural_performance.filter(v => v.status === 'Gap').length} 
-            trend="Action Required" 
+            label="Supply Chain Risks" 
+            value={data.alerts.supply_chain_risks} 
+            trend={data.alerts.supply_chain_risks > 0 ? "Action Required" : "Stable"} 
             icon={AlertCircle}
             color="rose"
           />
@@ -166,42 +226,228 @@ export default function Dashboard() {
                   </div>
                 </div>
 
-                {/* Experience Gaps & Automations */}
-                <div className="bg-gradient-to-br from-rose-900/10 to-amber-900/10 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
-                  <h3 className="text-xl font-heading font-bold mb-6 flex items-center gap-3">
-                    <AlertCircle className="text-rose-500" />
-                    Experience Gaps
-                  </h3>
-                  <div className="space-y-4">
-                    {data.cultural_performance.filter(v => v.status === 'Gap').map(v => (
-                      <div key={v.villa} className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20">
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="font-bold text-white uppercase text-xs tracking-widest">{v.villa} Villa</span>
-                          <span className="text-[10px] text-rose-400 font-black">{v.sentiment}% Mood</span>
+                {/* Local Intelligence & Alerts */}
+                <div className="bg-gradient-to-br from-indigo-900/10 to-amber-900/10 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl flex flex-col justify-between">
+                  <div>
+                    <h3 className="text-xl font-heading font-bold mb-6 flex items-center gap-3">
+                      <Globe className="text-indigo-500" />
+                      Local Market Intelligence
+                    </h3>
+                    <div className="space-y-4">
+                      {data.alerts.upcoming_events?.map(event => (
+                        <div key={event.name} className="p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/20">
+                          <div className="flex justify-between items-center mb-1">
+                            <span className="font-bold text-white uppercase text-xs tracking-widest">{event.name}</span>
+                            <span className={`text-[9px] px-2 py-0.5 rounded font-black ${
+                              event.demand_impact === 'Surge' ? 'bg-rose-500 text-white' : 'bg-amber-500 text-black'
+                            }`}>
+                              {event.demand_impact} DEMAND
+                            </span>
+                          </div>
+                          <p className="text-xs text-gray-400">
+                            {event.type} event taking place in <span className="text-white font-bold">{event.days_away} days</span>. Yield multipliers actively adjusted.
+                          </p>
                         </div>
-                        <p className="text-xs text-gray-400">Low engagement with in-room artifacts reported. AI suggesting proactive digital guide session.</p>
-                      </div>
-                    ))}
-                    <div className="pt-4 border-t border-white/5">
-                      <h4 className="text-xs font-black uppercase text-amber-500 tracking-tighter mb-4">AI Recovery Actions</h4>
-                      <AutomationItem title="Zambia Cultural Boost" desc="Sent push notification for 1963 Restaurant 'Nshima' special to current Zambia villa guest." impact="Engaged" />
+                      ))}
                     </div>
                   </div>
+
+                  <div className="pt-6 mt-6 border-t border-white/5">
+                    <h4 className="text-xs font-black uppercase text-amber-500 tracking-tighter mb-4 flex items-center gap-2">
+                      <BrainCircuit size={14} />
+                      AI Prescriptive Actions
+                    </h4>
+                    {data.ai_actions && data.ai_actions.length > 0 ? (
+                      <div className="space-y-4">
+                        {data.ai_actions.map(action => (
+                          <div key={action.id} className="p-4 rounded-2xl bg-[#18181b] border border-white/5 shadow-xl relative overflow-hidden group">
+                            {/* Accent line based on impact */}
+                            <div className={`absolute left-0 top-0 bottom-0 w-1 ${
+                              action.impact === 'Critical' || action.impact === 'Urgent' ? 'bg-rose-500' :
+                              action.impact === 'High' ? 'bg-amber-500' : 'bg-blue-500'
+                            }`} />
+                            
+                            <div className="flex justify-between items-start mb-2 pl-2">
+                              <div>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-gray-500 block mb-0.5">{action.type}</span>
+                                <span className="font-bold text-white text-sm leading-tight">{action.title}</span>
+                              </div>
+                              <span className={`text-[9px] px-2 py-0.5 rounded font-black ${
+                                action.impact === 'Critical' || action.impact === 'Urgent' ? 'bg-rose-500/20 text-rose-400' :
+                                action.impact === 'High' ? 'bg-amber-500/20 text-amber-500' : 'bg-blue-500/20 text-blue-400'
+                              }`}>
+                                {action.impact}
+                              </span>
+                            </div>
+                            
+                            <div className="pl-2 space-y-2 mb-3 mt-2">
+                              <p className="text-[11px] text-gray-400 leading-relaxed">
+                                <span className="text-gray-500 font-bold block text-[9px] uppercase tracking-wider mb-0.5">Observation</span>
+                                {action.observation}
+                              </p>
+                              <p className="text-[11px] text-gray-300 leading-relaxed font-medium">
+                                <span className="text-amber-500/80 font-bold block text-[9px] uppercase tracking-wider mb-0.5">Recommendation</span>
+                                {action.recommendation}
+                              </p>
+                            </div>
+                            
+                            <div className="pl-2 mt-4">
+                              <button className="w-full bg-white/5 hover:bg-amber-500 text-gray-300 hover:text-black transition-colors font-bold text-[11px] py-2 rounded-lg border border-white/5 hover:border-amber-500 flex items-center justify-center gap-2">
+                                {action.button_text} <ArrowUpRight size={12} />
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <p className="text-[10px] text-gray-500 italic text-center py-2">No active prescriptions.</p>
+                    )}
+                  </div>
+                </div>
+
+                {/* Task Schedule */}
+                <div className="lg:col-span-3 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-heading font-bold flex items-center gap-3">
+                      <Activity className="text-amber-500" />
+                      Task Schedule
+                    </h3>
+                    <span className="text-xs text-gray-400">
+                      {tasks?.length || 0} active
+                    </span>
+                  </div>
+
+                  {tasksError ? (
+                    <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 text-sm text-rose-300">
+                      Failed to load task schedule.
+                    </div>
+                  ) : (tasks?.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase tracking-widest text-gray-400 border-b border-white/10">
+                            <th className="py-3 pr-4">Ref</th>
+                            <th className="py-3 pr-4">Category</th>
+                            <th className="py-3 pr-4">Room</th>
+                            <th className="py-3 pr-4">Status</th>
+                            <th className="py-3 pr-4">Assigned Staff</th>
+                            <th className="py-3">Assigned At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasks.slice(0, 20).map(t => {
+                            const staff = t.assigned_staff;
+                            const staffLabel = staff?.name ? `${staff.name}${staff.role ? ` (${staff.role})` : ''}` : (staff?.id ? `Staff #${staff.id}` : 'Unassigned');
+                            const assignedAt = t.assigned_at ? new Date(t.assigned_at).toLocaleString() : '—';
+                            const statusColor = t.status === 'in_progress'
+                              ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
+                              : t.status === 'pending'
+                                ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30';
+
+                            return (
+                              <tr key={t.id} className="border-b border-white/5 last:border-b-0">
+                                <td className="py-3 pr-4 font-mono text-xs text-gray-300">#{t.ref_id || t.id}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.category || '—'}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.room_number || '—'}</td>
+                                <td className="py-3 pr-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
+                                    {t.status || '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 pr-4 text-gray-200">{staffLabel}</td>
+                                <td className="py-3 text-gray-400">{assignedAt}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-gray-300">
+                      No active tasks right now.
+                    </div>
+                  ))}
+                </div>
+
+                {/* Task Schedule */}
+                <div className="lg:col-span-3 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                  <div className="flex items-center justify-between mb-6">
+                    <h3 className="text-xl font-heading font-bold flex items-center gap-3">
+                      <Activity className="text-amber-500" />
+                      Task Schedule
+                    </h3>
+                    <span className="text-xs text-gray-400">
+                      {tasks?.length || 0} active
+                    </span>
+                  </div>
+
+                  {tasksError ? (
+                    <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 text-sm text-rose-300">
+                      Failed to load task schedule.
+                    </div>
+                  ) : (tasks?.length ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="text-left text-xs uppercase tracking-widest text-gray-400 border-b border-white/10">
+                            <th className="py-3 pr-4">Ref</th>
+                            <th className="py-3 pr-4">Category</th>
+                            <th className="py-3 pr-4">Room</th>
+                            <th className="py-3 pr-4">Status</th>
+                            <th className="py-3 pr-4">Assigned Staff</th>
+                            <th className="py-3">Assigned At</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {tasks.slice(0, 20).map(t => {
+                            const staff = t.assigned_staff;
+                            const staffLabel = staff?.name ? `${staff.name}${staff.role ? ` (${staff.role})` : ''}` : (staff?.id ? `Staff #${staff.id}` : 'Unassigned');
+                            const assignedAt = t.assigned_at ? new Date(t.assigned_at).toLocaleString() : '—';
+                            const statusColor = t.status === 'in_progress'
+                              ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
+                              : t.status === 'pending'
+                                ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
+                                : 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30';
+
+                            return (
+                              <tr key={t.id} className="border-b border-white/5 last:border-b-0">
+                                <td className="py-3 pr-4 font-mono text-xs text-gray-300">#{t.ref_id || t.id}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.category || '—'}</td>
+                                <td className="py-3 pr-4 text-gray-200">{t.room_number || '—'}</td>
+                                <td className="py-3 pr-4">
+                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
+                                    {t.status || '—'}
+                                  </span>
+                                </td>
+                                <td className="py-3 pr-4 text-gray-200">{staffLabel}</td>
+                                <td className="py-3 text-gray-400">{assignedAt}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-gray-300">
+                      No active tasks right now.
+                    </div>
+                  ))}
                 </div>
               </>
             )}
 
-            {/* CULTURAL INTELLIGENCE CONTENT */}
+            {/* EXPERIENCE INTELLIGENCE CONTENT */}
             {activeTab === 'cultural' && (
               <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div className="lg:col-span-2 bg-white/5 border border-white/10 p-8 rounded-[2.5rem] backdrop-blur-3xl">
                   <h3 className="text-xl font-heading font-bold mb-8 flex items-center gap-3">
                     <Globe className="text-amber-500" />
-                    Pan-African Consistency Score
+                    Signature Experience Performance
                   </h3>
                   <div className="h-[400px]">
                     <ResponsiveContainer width="100%" height="100%">
-                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data.cultural_performance}>
+                      <RadarChart cx="50%" cy="50%" outerRadius="80%" data={data.property_performance}>
                         <PolarGrid stroke="#ffffff20" />
                         <PolarAngleAxis dataKey="villa" tick={{ fill: '#9ca3af', fontSize: 10 }} />
                         <Radar
@@ -228,10 +474,10 @@ export default function Dashboard() {
                 <div className="bg-white/5 border border-white/10 p-6 rounded-[2.5rem] flex flex-col gap-6">
                   <h3 className="text-lg font-heading font-bold flex items-center gap-2">
                     <Award className="text-amber-500" />
-                    Villa Rankings
+                    Experience Rankings
                   </h3>
                   <div className="space-y-4">
-                    {data.cultural_performance.sort((a,b) => b.engagement - a.engagement).map((v, i) => (
+                    {data.property_performance.sort((a,b) => b.engagement - a.engagement).map((v, i) => (
                       <div key={v.villa} className="flex items-center justify-between p-4 rounded-2xl bg-white/5 hover:bg-white/10 transition-colors border border-white/5">
                         <div className="flex items-center gap-4">
                           <span className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-black ${i < 2 ? 'bg-amber-500 text-black' : 'bg-white/10 text-gray-400'}`}>
@@ -273,7 +519,7 @@ export default function Dashboard() {
                   />
                   <MetricCard 
                     label="Service Forecast" 
-                    value={`ETB ${data.revenue.service_revenue.toLocaleString()}`} 
+                    value={`ETB ${data.revenue.service_revenue_etb?.toLocaleString()}`} 
                     trend="High Demand" 
                     icon={Zap}
                     color="rose"
@@ -362,7 +608,7 @@ export default function Dashboard() {
                            <Target size={32} />
                         </div>
                         <h3 className="text-2xl font-heading font-black mb-4 uppercase tracking-tighter">Profit Prediction</h3>
-                        <p className="text-gray-400 text-sm leading-relaxed mb-6">Our AI predicts a total revenue of <span className="text-white font-bold">ETB {(data.revenue.today_total * 30 * 0.9).toLocaleString()}</span> for the next 30 days based on current market velocity.</p>
+                        <p className="text-gray-400 text-sm leading-relaxed mb-6">Our AI predicts a total revenue of <span className="text-white font-bold">ETB {(data.revenue.today_total_etb * 30 * 0.9).toLocaleString()}</span> for the next 30 days based on current market velocity.</p>
                         <div className="p-4 rounded-2xl bg-white/5 border border-white/5 text-xs text-amber-500/80 font-bold italic">
                            "Tip: Occupancy surcharges are currently offsetting low service bookings."
                         </div>

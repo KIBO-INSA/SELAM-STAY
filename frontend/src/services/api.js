@@ -10,6 +10,7 @@ export const conciergeAPI = {
   chat:      (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),
   reset:     (guest_id)          => api.post('/concierge/reset', { guest_id }),
   proactive: (guest_id)          => api.get(`/concierge/proactive/${guest_id}`),
+  history:   (guest_id, limit = 30) => api.get(`/concierge/history/${guest_id}`, { params: { limit } }),
 };
 
 export const sentimentAPI = {
@@ -42,7 +43,8 @@ export const schedulerAPI = {
 };
 
 export const dashboardAPI = {
-  summary: ()               => api.get('/dashboard/summary'),
+  summary: (property = '') => api.get(`/dashboard/summary${property ? `?property=${encodeURIComponent(property)}` : ''}`),
+  tasks: ()                 => api.get('/dashboard/tasks'),
 };
 
 export const roomControlsAPI = {
@@ -54,4 +56,9 @@ export const serviceAPI = {
   create:  (data)          => api.post('/services/request', data),
   getByGuest: (guestId)    => api.get(`/services/guest/${guestId}`),
   updateStatus: (id, status) => api.post(`/services/${id}/status`, { status }),
+};
+
+export const guestAPI = {
+  updatePreferences: (data) => api.post('/guest/preferences', data),
+  getProfile: (guestId)     => api.get(`/guest/${guestId}`),
 };
