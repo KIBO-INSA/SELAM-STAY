@@ -1,96 +1,69 @@
-import { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Link, useLocation } from 'react-router-dom';
-import SelamBot          from './components/SelamBot';
-import Dashboard         from './components/Dashboard';
-import FeedbackPage      from './pages/FeedbackPage';
-import GuestPortal       from './pages/GuestPortal';
-import RoomControlPage   from './pages/RoomControlPage';
-import ServiceRequestPage from './pages/ServiceRequestPage';
-import { 
-  Leaf, MessageSquare, LayoutDashboard, Home, 
-  Thermometer, Bell, Star
-} from 'lucide-react';
+// src/App.jsx
+import { useState } from "react";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 
-function Nav() {
-  const loc = useLocation();
-  const path = loc.pathname;
+// Pages
+import Login from "./pages/Login";
+import Preference from "./pages/Preference";
+import GuestPortal from "./pages/GuestPortal";
+import SelamBot from "./components/SelamBot";
+import RoomControlPage from "./pages/RoomControlPage";
+import ServiceRequestPage from "./pages/ServiceRequestPage";
+import FeedbackPage from "./pages/FeedbackPage";
+import Dashboard from "./components/Dashboard";
 
-  // Determine if we're in the Manager section
-  const isManager = path === '/dashboard';
-
-  const guestLinks = [
-    { to: '/portal',         label: 'Portal',    icon: Home },
-    { to: '/',               label: 'Concierge', icon: MessageSquare },
-    { to: '/room-controls',  label: 'Room',      icon: Thermometer },
-    { to: '/services',       label: 'Services',  icon: Bell },
-    { to: '/feedback',       label: 'Feedback',  icon: Star },
-  ];
-
-  return (
-    <nav className="fixed top-0 w-full z-50 bg-coffee-900/90 backdrop-blur-md border-b border-white/10 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between h-16">
-        <Link to="/portal" className="flex-shrink-0 flex items-center gap-2">
-          <Leaf size={20} className="text-amber-500" />
-          <span className="text-amber-500 font-heading font-bold text-xl tracking-wide">Selam Stay</span>
-        </Link>
-
-        <div className="flex items-center gap-1">
-          {/* Guest Links */}
-          {guestLinks.map(l => {
-            const Icon = l.icon;
-            const isActive = path === l.to;
-            return (
-              <Link 
-                key={l.to} 
-                to={l.to}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  isActive 
-                    ? 'bg-amber-600/20 text-amber-500' 
-                    : 'text-gray-300 hover:bg-white/5 hover:text-white'
-                }`}
-              >
-                <Icon size={15} />
-                <span className="hidden md:inline">{l.label}</span>
-              </Link>
-            );
-          })}
-
-          {/* Divider */}
-          <div className="w-px h-6 bg-white/10 mx-1 hidden sm:block" />
-
-          {/* Manager Link */}
-          <Link 
-            to="/dashboard"
-            className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-              isManager 
-                ? 'bg-amber-600/20 text-amber-500' 
-                : 'text-gray-400 hover:bg-white/5 hover:text-white'
-            }`}
-          >
-            <LayoutDashboard size={15} />
-            <span className="hidden sm:inline">Manager</span>
-          </Link>
-        </div>
-      </div>
-    </nav>
-  );
-}
+// Components
+import Nav from "./components/Nav";
 
 export default function App() {
-  const [mood, setMood] = useState(null);
+  const [loggedIn, setLoggedIn] = useState(false);
+  const [preferences, setPreferences] = useState({
+    food: "",
+    drink: "",
+    activity: "",
+  });
 
   return (
     <BrowserRouter>
       <div className="min-h-screen bg-[#FAFAF9] text-gray-900 font-sans flex flex-col">
-        <Nav />
-        <main className="pt-16 flex-1 flex flex-col">
+        {loggedIn && <Nav />}
+
+        <main className="flex-1 pt-16">
           <Routes>
-            <Route path="/portal"        element={<GuestPortal setGlobalMood={setMood} />} />
-            <Route path="/"              element={<SelamBot guestId="guest-1" mood={mood} />} />
-            <Route path="/room-controls" element={<RoomControlPage />} />
-            <Route path="/services"      element={<ServiceRequestPage />} />
-            <Route path="/feedback"      element={<FeedbackPage />} />
-            <Route path="/dashboard"     element={<Dashboard />} />
+            {!loggedIn ? (
+              <Route
+                path="/*"
+                element={<Login onLogin={() => setLoggedIn(true)} />}
+              />
+            ) : (
+              <>
+                <Route
+                  path="/preferences"
+                  element={
+                    <Preference
+                      preferences={preferences}
+                      setPreferences={setPreferences}
+                    />
+                  }
+                />
+                <Route
+                  path="/portal"
+                  element={
+                    <GuestPortal
+                      preferences={preferences}
+                      setPreferences={setPreferences}
+                    />
+                  }
+                />
+                <Route path="/" element={<SelamBot preferences={preferences} />} />
+                <Route path="/room-controls" element={<RoomControlPage />} />
+                <Route path="/services" element={<ServiceRequestPage />} />
+                <Route path="/feedback" element={<FeedbackPage />} />
+                <Route path="/dashboard" element={<Dashboard />} />
+
+                <Route path="*" element={<Navigate to="/" />} />
+              </>
+            )}
           </Routes>
         </main>
       </div>
