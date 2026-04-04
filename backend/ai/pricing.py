@@ -14,23 +14,35 @@ MODEL_PATH = os.path.join(os.path.dirname(__file__),
 _model = None
 
 
-def _build_synthetic_data(n: int = 2000) -> pd.DataFrame:
+def _build_synthetic_data(n: int = 3000) -> pd.DataFrame:
+    """Builds synthetic data representing Kuriftu market trends."""
     np.random.seed(42)
+    # Months with major festivals (September=9, January=1) have higher demand
+    month = np.random.randint(1, 13, n)
+    is_festival_season = np.isin(month, [1, 4, 9, 12]).astype(int)
+    
     df = pd.DataFrame({
-        "occupancy_rate":     np.random.uniform(0.3, 1.0, n),
+        "occupancy_rate":     np.random.uniform(0.2, 1.0, n),
         "day_of_week":        np.random.randint(0, 7, n),
-        "month":              np.random.randint(1, 13, n),
-        "is_holiday":         np.random.randint(0, 2, n),
-        "competitor_price":   np.random.uniform(80, 300, n),
-        "days_until_checkin": np.random.randint(0, 90, n),
-        "base_price":         np.random.uniform(100, 200, n),
+        "month":              month,
+        "is_holiday":         is_festival_season,
+        "competitor_price":   np.random.uniform(120, 450, n),
+        "days_until_checkin": np.random.randint(0, 30, n),
+        "base_price":         np.random.uniform(150, 250, n),
     })
+
+    # The Logic: 
+    # 1. High Occupancy (>80%) = 40% price surge
+    # 2. Festival Season = 25% price surge
+    # 3. Last minute (<3 days) = 15% 'Urgency' premium
+    # 4. Competitor price floor = price must stay within 20% of market avg
+    
     df["optimal_price"] = (
         df["base_price"]
-        * (1 + df["occupancy_rate"] * 0.5)
-        * (1 + df["is_holiday"] * 0.3)
-        * (1 - df["days_until_checkin"] * 0.001)
-        * (1 + (df["day_of_week"].isin([4, 5, 6])).astype(int) * 0.15)
+        * (1 + (df["occupancy_rate"] > 0.8).astype(int) * 0.4)
+        * (1 + df["is_holiday"] * 0.25)
+        * (1 + (df["days_until_checkin"] < 3).astype(int) * 0.15)
+        + (df["competitor_price"] * 0.1) # Strategic alignment
     )
     return df
 

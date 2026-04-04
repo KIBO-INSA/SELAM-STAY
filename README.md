@@ -40,6 +40,11 @@ cp .env.example .env          # Add your ANTHROPIC_API_KEY
 docker-compose up --build
 ```
 
+### 4. Access Credentials
+For the Manager Intelligence dashboard, use the following credentials:
+- **Manager ID**: `manager`
+- **Access Key**: `kuriftu2024`
+
 Open http://localhost:3000
 
 ## Project Structure

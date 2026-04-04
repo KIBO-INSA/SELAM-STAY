@@ -4,13 +4,36 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --coffee-50: #fdfaf7;
+  --coffee-100: #f7ede3;
+  --coffee-200: #ead7c7;
+  --coffee-300: #d8b8a0;
+  --coffee-400: #c19175;
+  --coffee-500: #ad7456;
+  --coffee-600: #9e634b;
+  --coffee-700: #845041;
+  --coffee-800: #6b4139;
+  --coffee-900: #583731;
+  --coffee-950: #2f1b1a;
+
+  --gold-50: #fffbeb;
+  --gold-100: #fef3c7;
+  --gold-200: #fde68a;
+  --gold-300: #fcd34d;
+  --gold-400: #fbbf24;
+  --gold-500: #f59e0b; /* Primary Accent */
+}
+
 @layer base {
   body {
-    @apply bg-[#FAFAF9] text-gray-900 font-sans antialiased;
+    @apply bg-stone-50 text-stone-900 selection:bg-amber-500/30;
+    font-family: 'Inter', system-ui, sans-serif;
   }
   
-  h1, h2, h3, h4, h5, h6 {
-    @apply font-heading tracking-tight;
+  h1, h2, h3, h4, h5, h6, .font-heading {
+    font-family: 'Outfit', sans-serif;
+    @apply tracking-tight;
   }
 }
 

@@ -64,6 +64,18 @@ export default function SelamBot({ guestId = 'guest-1', mood }) {
       .catch(() => {}); // silent fail
   }, [guestId]);
 
+  // ── Intent Handling: Handle deep-linked actions from Portal ──────
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const intent = params.get('intent');
+    if (intent && !loading && messages.length === 1) {
+      // Small delay to ensure greeting finishes
+      setTimeout(() => send(intent), 500);
+      // Clean up URL
+      window.history.replaceState({}, document.title, "/");
+    }
+  }, []);
+
   // ── Mood-Based Proactive Message ──────────────────────────────────────
   useEffect(() => {
     if (mood && !hasProactivelyAsked.current && messages.length === 1) {

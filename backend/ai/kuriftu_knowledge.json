@@ -1,0 +1,79 @@
+{
+  "villas": [
+    {
+      "id": 1,
+      "country": "Ethiopia",
+      "region": "East Africa",
+      "artifacts": ["Hand-woven Gabi textiles", "Traditional Mesob (bread basket)", "Lalibela cross carvings"],
+      "cuisine": ["Doro Wat", "Injera", "Honey Wine (Tej)"],
+      "story": "The heart of Habesha heritage, representing the source of the Blue Nile and ancient civilizations."
+    },
+    {
+      "id": 2,
+      "country": "Kenya",
+      "region": "East Africa",
+      "artifacts": ["Maasai beaded jewelry", "Ebony wood carvings", "Kiondo woven baskets"],
+      "cuisine": ["Nyama Choma", "Ugali", "Sukuma Wiki"],
+      "story": "A celebration of the Savannah, the Maasai spirit, and the cradle of human history."
+    },
+    {
+      "id": 10,
+      "country": "Nigeria",
+      "region": "West Africa",
+      "artifacts": ["Benin Bronze replicas", "Aso Oke fabrics", "Ibeji sculptures"],
+      "cuisine": ["Jollof Rice", "Pounded Yam", "Efo Riro"],
+      "story": "Representing the vibrant energy of the Giant of Africa, from the Sahel to the Gulf of Guinea."
+    },
+    {
+      "id": 15,
+      "country": "Zambia",
+      "region": "Southern Africa",
+      "artifacts": ["Lunda baskets", "Copper handicrafts", "Makishi masks"],
+      "cuisine": ["Nshima", "Chikanda", "Dried Bream"],
+      "story": "The land of the Victoria Falls, rich in copper heritage and diverse tribal traditions."
+    },
+    {
+      "id": 22,
+      "country": "Morocco",
+      "region": "North Africa",
+      "artifacts": ["Zellige tile patterns", "Berber rugs", "Argan oil skincare"],
+      "cuisine": ["Tagine", "Couscous", "Mint Tea"],
+      "story": "A gateway to the Sahara, blending African, Arab, and Berber cultural tapestries."
+    },
+    {
+      "id": 30,
+      "country": "South Africa",
+      "region": "Southern Africa",
+      "artifacts": ["Ndebele house paintings", "Zulu beadwork", "Rooibos botanical art"],
+      "cuisine": ["Braai", "Bobotie", "Biltong"],
+      "story": "The Rainbow Nation, celebrating diversity from the Cape to the Highveld."
+    },
+    {
+      "id": 45,
+      "country": "Senegal",
+      "region": "West Africa",
+      "artifacts": ["Bogolanfini (mud cloth)", "Sabbar drums", "Goree Island art"],
+      "cuisine": ["Thieboudienne", "Yassa Chicken", "Mafe"],
+      "story": "The land of Teranga (hospitality), where the Atlantic meets the Sahara."
+    },
+    {
+      "id": 54,
+      "country": "Egypt",
+      "region": "North Africa",
+      "artifacts": ["Papyrus scrolls", "Alabaster stonework", "Lotus flower motifs"],
+      "cuisine": ["Koshary", "Ful Medames", "Mahshi"],
+      "story": "The gift of the Nile, connecting ancient wonders with modern African identity."
+    }
+  ],
+  "pan_african_experiences": {
+    "1963_restaurant": {
+      "name": "1963 Restaurant",
+      "concept": "Founding of the OAU",
+      "menu_rotation": "Weekly regional specials (West, East, North, Southern, Central)"
+    },
+    "spa_wellness": {
+      "signature": "African Village Ritual",
+      "treatments": ["Moroccan Hammam", "Ethiopian Coffee Scrub", "South African Rooibos Wrap"]
+    }
+  }
+}
