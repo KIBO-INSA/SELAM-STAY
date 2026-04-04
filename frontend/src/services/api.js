@@ -40,6 +40,7 @@ export const schedulerAPI = {
 
 export const dashboardAPI = {
   summary: (property = '') => api.get(`/dashboard/summary${property ? `?property=${encodeURIComponent(property)}` : ''}`),
+  tasks: ()                 => api.get('/dashboard/tasks'),
 };
 
 export const roomControlsAPI = {

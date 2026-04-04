@@ -1,6 +1,11 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from datetime import datetime
+from typing import Optional
+
+from models.database import get_db, Room, Feedback, MaintenanceLog, Guest, ServiceRequest, Staff
+from ai.maintenance import calculate_risk
+from ai.pricing import predict_price
 import random
 import json
 import os
@@ -265,6 +270,98 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
         "guest_segments": segments,
         "property_performance": PROPERTY_EXPERIENCES.get(property, PROPERTY_EXPERIENCES["African Village"]),
         "ai_actions": ai_actions
+    }
+
+
+@router.get("/tasks")
+async def dashboard_tasks(
+    db: Session = Depends(get_db),
+    limit: int = 50,
+    include_completed: bool = False,
+):
+    """Manager task schedule: service requests + assignment details.
+
+    Designed to mirror the assignment info shown in chat and guest request lists.
+    """
+    q = db.query(ServiceRequest)
+    if not include_completed:
+        q = q.filter(ServiceRequest.status != "completed")
+
+    tasks = q.order_by(ServiceRequest.created_at.desc()).limit(max(1, min(limit, 200))).all()
+    staff_by_id = {s.id: s for s in db.query(Staff).all()}
+
+    def staff_payload(staff_id: Optional[int]):
+        if not staff_id:
+            return None
+        staff = staff_by_id.get(staff_id)
+        if staff:
+            return {"id": staff.id, "name": staff.name, "role": staff.role}
+        return {"id": staff_id}
+
+    return {
+        "tasks": [
+            {
+                "id": t.id,
+                "ref_id": t.id,
+                "category": t.category,
+                "room_number": t.room_number,
+                "description": t.description,
+                "status": t.status,
+                "priority": t.priority,
+                "assigned_at": t.assigned_at.isoformat() if t.assigned_at else None,
+                "assignment_reason": t.assignment_reason,
+                "assigned_staff": staff_payload(t.assigned_staff_id),
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+            }
+            for t in tasks
+        ]
+    }
+
+
+@router.get("/tasks")
+async def dashboard_tasks(
+    db: Session = Depends(get_db),
+    limit: int = 50,
+    include_completed: bool = False,
+):
+    """Manager task schedule: service requests + assignment details.
+
+    Designed to mirror the assignment info shown in chat and guest request lists.
+    """
+    q = db.query(ServiceRequest)
+    if not include_completed:
+        q = q.filter(ServiceRequest.status != "completed")
+
+    tasks = q.order_by(ServiceRequest.created_at.desc()).limit(max(1, min(limit, 200))).all()
+    staff_by_id = {s.id: s for s in db.query(Staff).all()}
+
+    def staff_payload(staff_id: Optional[int]):
+        if not staff_id:
+            return None
+        staff = staff_by_id.get(staff_id)
+        if staff:
+            return {"id": staff.id, "name": staff.name, "role": staff.role}
+        return {"id": staff_id}
+
+    return {
+        "tasks": [
+            {
+                "id": t.id,
+                "ref_id": t.id,
+                "category": t.category,
+                "room_number": t.room_number,
+                "description": t.description,
+                "status": t.status,
+                "priority": t.priority,
+                "assigned_at": t.assigned_at.isoformat() if t.assigned_at else None,
+                "assignment_reason": t.assignment_reason,
+                "assigned_staff": staff_payload(t.assigned_staff_id),
+                "created_at": t.created_at.isoformat() if t.created_at else None,
+                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+            }
+            for t in tasks
+        ]
     }
 
 @router.get("/guest/villa-theme/{guest_id}")
