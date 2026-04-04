@@ -89,7 +89,24 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
 
     sentiment_counts = {"positive": 0, "neutral": 0, "negative": 0}
     for f in feedbacks:
-        sentiment_counts[f.sentiment] = sentiment_counts.get(f.sentiment, 0) + 1
+        key = (getattr(f, "sentiment", None) or "neutral")
+        if key not in sentiment_counts:
+            key = "neutral"
+        sentiment_counts[key] = sentiment_counts.get(key, 0) + 1
+
+    # Inventory & Supply Chain Analysis (Localized)
+    inventory_items = db.query(InventoryItem).filter(InventoryItem.property_location == property).all()
+    inventory_alerts = []
+    for item in inventory_items:
+        # Simple logic: if stock is below min, and lead time is > 3 days, it's a "Supply Risk"
+        if item.current_stock < item.min_stock_level:
+            risk_type = "Critical" if item.lead_time_days > 5 else "Warning"
+            inventory_alerts.append({
+                "item": item.name,
+                "status": risk_type,
+                "lead_time": f"{item.lead_time_days} days",
+                "message": f"Low stock of {item.name}. Reorder immediately due to {item.lead_time_days} day lead time."
+            })
 
     # Inventory & Supply Chain Analysis (Localized)
     inventory_items = db.query(InventoryItem).filter(InventoryItem.property_location == property).all()
@@ -123,6 +140,32 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
         "Signature Coffee Scrub": {"base": 80, "optimized": round(80 * yield_multiplier, 2)},
         "Lakeside Dinner Package": {"base": 120, "optimized": round(120 * yield_multiplier, 2)},
         "Simien Helicopter Tour": {"base": 500, "optimized": round(500 * yield_multiplier, 2)},
+    }
+
+    # Service revenue snapshot (no per-request pricing stored yet)
+    service_rev = 0.0
+
+    # Guest segments (simple, DB-backed counts)
+    guests = db.query(Guest).all()
+    in_house = [g for g in guests if g.check_out is None]
+    segments = {
+        "in_house": len(in_house),
+        "total_guests": len(guests),
+        "language_en": sum(1 for g in guests if (g.language or "").lower() == "en"),
+        "language_am": sum(1 for g in guests if (g.language or "").lower() == "am"),
+    }
+
+    # Service revenue snapshot (no per-request pricing stored yet)
+    service_rev = 0.0
+
+    # Guest segments (simple, DB-backed counts)
+    guests = db.query(Guest).all()
+    in_house = [g for g in guests if g.check_out is None]
+    segments = {
+        "in_house": len(in_house),
+        "total_guests": len(guests),
+        "language_en": sum(1 for g in guests if (g.language or "").lower() == "en"),
+        "language_am": sum(1 for g in guests if (g.language or "").lower() == "am"),
     }
 
     # Predictive Revenue (30-day forecast - Event Driven)
@@ -232,6 +275,8 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
         "revenue": {
             "today_total_etb": round(revenue_today_etb + service_rev_etb, 2),
             "today_total_usd": round(revenue_today_usd + service_rev_usd, 2),
+            # Back-compat for frontend (expects today_etb)
+            "today_etb":      round(revenue_today + service_rev, 2),
             "room_revenue_etb": round(revenue_today_etb, 2),
             "service_revenue_etb": round(service_rev_etb, 2),
             "forecast":       forecast,

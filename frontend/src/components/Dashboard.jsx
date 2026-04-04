@@ -19,6 +19,7 @@ const COLORS = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
 export default function Dashboard() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error,      setError]   = useState(null);
   const [activeTab, setActiveTab] = useState('overview');
   const [currency, setCurrency] = useState('ETB');
   const [selectedProperty, setSelectedProperty] = useState('African Village');
@@ -52,6 +53,31 @@ export default function Dashboard() {
         <h2 className="text-xl font-heading font-bold text-white tracking-widest uppercase animate-pulse">
           Connecting African Nations...
         </h2>
+      </div>
+    );
+  }
+
+  if (!data) {
+    return (
+      <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0a0b] text-white gap-4">
+        <div className="text-rose-400">
+          <AlertCircle size={48} />
+        </div>
+        <h2 className="text-xl font-heading font-bold tracking-widest uppercase">
+          Dashboard data unavailable
+        </h2>
+        <p className="text-sm text-gray-400 max-w-xl text-center">
+          The server returned an error for <span className="text-gray-300">/api/dashboard/summary</span>. Please try again.
+        </p>
+        <button
+          onClick={refreshData}
+          className="px-5 py-2.5 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 transition-colors"
+        >
+          Retry
+        </button>
+        {error ? (
+          <p className="text-xs text-gray-500">{String(error?.message || error)}</p>
+        ) : null}
       </div>
     );
   }

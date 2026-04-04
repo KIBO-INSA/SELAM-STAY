@@ -1,8 +1,9 @@
-from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, Float, DateTime, Boolean, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 from datetime import datetime
 import os
+import json
 
 DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./selam.db")
 
@@ -103,11 +104,46 @@ class ServiceRequest(Base):
     description     = Column(String)
     status          = Column(String, default="pending")  # pending, in_progress, completed
     priority        = Column(String, default="normal")  # low, normal, high, urgent
+    metadata_json   = Column(String, default="{}")
+    assigned_staff_id = Column(Integer, nullable=True)
+    assigned_at     = Column(DateTime, nullable=True)
+    assignment_reason = Column(String, nullable=True)
     currency        = Column(String, default="ETB")
     exchange_rate   = Column(Float, default=1.0)
     property_location = Column(String, default="African Village")
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow)
+
+
+class ConversationState(Base):
+    __tablename__ = "conversation_state"
+    id                 = Column(Integer, primary_key=True, index=True)
+    guest_id           = Column(Integer, index=True, unique=True)
+    active_intent      = Column(String, nullable=True)
+    conversation_stage = Column(String, default="idle")  # idle, slot_filling, confirming, idle_silent
+    collected_slots    = Column(String, default="{}")    # JSON dict
+    pending_slots      = Column(String, default="[]")    # JSON list
+    completion_status  = Column(String, default="")
+    greeted            = Column(Boolean, default=False)
+    updated_at         = Column(DateTime, default=datetime.utcnow)
+
+    def get_collected(self) -> dict:
+        try:
+            return json.loads(self.collected_slots or "{}")
+        except Exception:
+            return {}
+
+    def set_collected(self, value: dict):
+        self.collected_slots = json.dumps(value or {}, ensure_ascii=False)
+
+    def get_pending(self) -> list:
+        try:
+            return json.loads(self.pending_slots or "[]")
+        except Exception:
+            return []
+
+    def set_pending(self, value: list):
+        self.pending_slots = json.dumps(value or [], ensure_ascii=False)
 
 
 class ConversationHistory(Base):
@@ -116,6 +152,7 @@ class ConversationHistory(Base):
     guest_id    = Column(Integer)
     role        = Column(String)  # "user" or "assistant"
     content     = Column(String)
+    intent      = Column(String, nullable=True)
     timestamp   = Column(DateTime, default=datetime.utcnow)
 
 
@@ -129,3 +166,39 @@ def get_db():
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+
+    # Lightweight SQLite migrations (add missing columns only)
+    # Note: create_all does not ALTER existing tables.
+    if str(engine.url).startswith("sqlite"):
+        with engine.begin() as conn:
+            def _existing_cols(table: str) -> set:
+                rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
+                # PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
+                return {r[1] for r in rows}
+
+            def _add_col(table: str, col_name: str, col_type_sql: str, default_sql: str | None = None):
+                default_clause = f" DEFAULT {default_sql}" if default_sql is not None else ""
+                conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type_sql}{default_clause}"))
+
+            # service_requests: metadata + assignment fields
+            try:
+                cols = _existing_cols("service_requests")
+                if "metadata_json" not in cols:
+                    _add_col("service_requests", "metadata_json", "TEXT", "'{}'")
+                if "assigned_staff_id" not in cols:
+                    _add_col("service_requests", "assigned_staff_id", "INTEGER")
+                if "assigned_at" not in cols:
+                    _add_col("service_requests", "assigned_at", "DATETIME")
+                if "assignment_reason" not in cols:
+                    _add_col("service_requests", "assignment_reason", "TEXT")
+            except Exception:
+                # Best-effort: don't block app startup if migration fails
+                pass
+
+            # conversation_history: optional intent memory
+            try:
+                cols = _existing_cols("conversation_history")
+                if "intent" not in cols:
+                    _add_col("conversation_history", "intent", "TEXT")
+            except Exception:
+                pass
