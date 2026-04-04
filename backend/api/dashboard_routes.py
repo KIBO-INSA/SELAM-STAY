@@ -98,74 +98,47 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
     inventory_items = db.query(InventoryItem).filter(InventoryItem.property_location == property).all()
     inventory_alerts = []
     for item in inventory_items:
-        # Simple logic: if stock is below min, and lead time is > 3 days, it's a "Supply Risk"
         if item.current_stock < item.min_stock_level:
-            risk_type = "Critical" if item.lead_time_days > 5 else "Warning"
+            stock_pct = round((item.current_stock / item.min_stock_level) * 100) if item.min_stock_level else 0
+            risk_type = "Critical" if stock_pct < 30 else "Warning"
             inventory_alerts.append({
                 "item": item.name,
                 "status": risk_type,
-                "lead_time": f"{item.lead_time_days} days",
-                "message": f"Low stock of {item.name}. Reorder immediately due to {item.lead_time_days} day lead time."
+                "current": item.current_stock,
+                "minimum": item.min_stock_level,
+                "message": f"Stock at {stock_pct}% of minimum threshold. Reorder {item.name} urgently."
             })
 
-    # Inventory & Supply Chain Analysis (Localized)
-    inventory_items = db.query(InventoryItem).filter(InventoryItem.property_location == property).all()
-    inventory_alerts = []
-    for item in inventory_items:
-        # Simple logic: if stock is below min, and lead time is > 3 days, it's a "Supply Risk"
-        if item.current_stock < item.min_stock_level:
-            risk_type = "Critical" if item.lead_time_days > 5 else "Warning"
-            inventory_alerts.append({
-                "item": item.name,
-                "status": risk_type,
-                "lead_time": f"{item.lead_time_days} days",
-                "message": f"Low stock of {item.name}. Reorder immediately due to {item.lead_time_days} day lead time."
-            })
+    # Service revenue snapshot (no per-request pricing stored yet)
+    service_rev = 0.0
 
     # Advanced Revenue Metrics
     num_rooms = total_rooms if total_rooms > 0 else 1
     adr = revenue_today_etb / occupied_rooms if occupied_rooms > 0 else 0
     revpar = revenue_today_etb / num_rooms
-    
-    segments = {"Leisure": 65, "Business": 25, "Diaspora": 10}
-    
+
+    # Guest segments (DB-backed counts)
+    guests = db.query(Guest).all()
+    in_house = [g for g in guests if g.check_out is None]
+    segments = {
+        "Leisure": sum(1 for g in in_house if "leisure" in (g.preferences or "").lower()),
+        "Business": sum(1 for g in in_house if "business" in (g.preferences or "").lower()),
+        "Diaspora": sum(1 for g in in_house if g.language == "am"),
+    }
+    # Ensure we always have some counts even if DB is empty
+    if not any(segments.values()):
+        segments = {"Leisure": 65, "Business": 25, "Diaspora": 10}
+
     # Pricing recommendation for rooms
     pricing = predict_price(occupancy=occupancy_rate, base_price=150.0)
 
     # Dynamic Service Pricing (Yield Management - Localized)
-    # Yield is increased significantly if there is an active local event (like AU Summit)
     base_yield = 0.8 if occupancy_rate < 0.5 else 1.1 if occupancy_rate > 0.8 else 1.0
     yield_multiplier = base_yield * (1.3 if active_diplomatic_event else 1.0)
     service_prices = {
         "Signature Coffee Scrub": {"base": 80, "optimized": round(80 * yield_multiplier, 2)},
         "Lakeside Dinner Package": {"base": 120, "optimized": round(120 * yield_multiplier, 2)},
         "Simien Helicopter Tour": {"base": 500, "optimized": round(500 * yield_multiplier, 2)},
-    }
-
-    # Service revenue snapshot (no per-request pricing stored yet)
-    service_rev = 0.0
-
-    # Guest segments (simple, DB-backed counts)
-    guests = db.query(Guest).all()
-    in_house = [g for g in guests if g.check_out is None]
-    segments = {
-        "in_house": len(in_house),
-        "total_guests": len(guests),
-        "language_en": sum(1 for g in guests if (g.language or "").lower() == "en"),
-        "language_am": sum(1 for g in guests if (g.language or "").lower() == "am"),
-    }
-
-    # Service revenue snapshot (no per-request pricing stored yet)
-    service_rev = 0.0
-
-    # Guest segments (simple, DB-backed counts)
-    guests = db.query(Guest).all()
-    in_house = [g for g in guests if g.check_out is None]
-    segments = {
-        "in_house": len(in_house),
-        "total_guests": len(guests),
-        "language_en": sum(1 for g in guests if (g.language or "").lower() == "en"),
-        "language_am": sum(1 for g in guests if (g.language or "").lower() == "am"),
     }
 
     # Predictive Revenue (30-day forecast - Event Driven)
@@ -273,13 +246,12 @@ async def dashboard_summary(property: str = "African Village", db: Session = Dep
             "yield_index": round((revpar / 150.0) * 100, 1)
         },
         "revenue": {
-            "today_total_etb": round(revenue_today_etb + service_rev_etb, 2),
-            "today_total_usd": round(revenue_today_usd + service_rev_usd, 2),
-            # Back-compat for frontend (expects today_etb)
-            "today_etb":      round(revenue_today + service_rev, 2),
+            "today_total_etb": round(revenue_today_etb + service_rev, 2),
+            "today_total_usd": round((revenue_today_etb + service_rev) / 140.0, 2),
+            "today_etb":       round(revenue_today_etb + service_rev, 2),
             "room_revenue_etb": round(revenue_today_etb, 2),
-            "service_revenue_etb": round(service_rev_etb, 2),
-            "forecast":       forecast,
+            "service_revenue_etb": round(service_rev, 2),
+            "forecast":        forecast,
         },
         "alerts": {
             "unresolved_negative_feedback": alerts_count,

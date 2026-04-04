@@ -169,42 +169,95 @@ def get_personalized_recommendations(guest_id: str) -> str:
         gid = int(str(guest_id).replace("guest-", ""))
         guest = db.query(Guest).filter(Guest.id == gid).first()
         if not guest: return "Guest not found."
-        
-        prefs = guest.preferences.lower()
+
+        # Parse structured JSON preferences saved from the AI Onboarding form
+        prefs = {}
+        if guest.preferences:
+            try:
+                prefs = json.loads(guest.preferences)
+            except Exception:
+                prefs = {}
+
+        occasion = prefs.get("occasion", "").lower()
+        dining_vibe = prefs.get("dining_vibe", "").lower()
+        dietary = prefs.get("dietary_restrictions", "").strip()
+
         recommendations = []
-        
-        # Logic for high-revenue recommendations
-        if "wellness" in prefs or "relax" in prefs or "spa" in prefs:
+
+        # --- Occasion-based recommendations ---
+        if occasion == "leisure":
             recommendations.append({
-                "service": "Signature Ethiopian Coffee Scrub",
+                "service": "Signature Ethiopian Coffee Scrub + Full Body Wrap",
+                "category": "Spa & Wellness",
+                "price": "ETB 5,500",
+                "why": "You are here for deep relaxation. This is our highest-rated wellness treatment."
+            })
+        elif occasion == "honeymoon":
+            recommendations.append({
+                "service": "Private Lakeside Candle Dinner for Two",
+                "category": "Romantic Dining",
+                "price": "ETB 15,000",
+                "why": "A carefully curated experience for couples — secluded, intimate, and unforgettable."
+            })
+            recommendations.append({
+                "service": "Couples Rose Petal Spa Ritual",
                 "category": "Spa",
-                "price": "ETB 4,500",
-                "why": "Matches your preference for wellness and relaxation."
+                "price": "ETB 9,000",
+                "why": "Our signature honeymoon treatment with champagne and aromatherapy."
             })
-        if "food" in prefs or "dining" in prefs or "romantic" in prefs:
+        elif occasion == "family":
             recommendations.append({
-                "service": "Private Lakeside Dinner",
-                "category": "Dining",
+                "service": "Kuriftu Water Park Full-Day Pass (Family of 4)",
+                "category": "Family Activities",
+                "price": "ETB 6,000",
+                "why": "The kids will love it. Our most popular family activity."
+            })
+            recommendations.append({
+                "service": "Ethiopian Cultural Cooking Class",
+                "category": "Family Experience",
+                "price": "ETB 3,500",
+                "why": "A hands-on cultural immersion experience the whole family can enjoy together."
+            })
+        elif occasion == "business":
+            recommendations.append({
+                "service": "Executive Meeting Room & Catering (Full Day)",
+                "category": "Business",
                 "price": "ETB 12,000",
-                "why": "Perfect for a premium dining experience."
+                "why": "Our premium workspace with fast Wi-Fi, projector, and included catering."
             })
-        if "adventure" in prefs or "explore" in prefs:
+
+        # --- Dining vibe based recommendations ---
+        if dining_vibe == "cultural":
             recommendations.append({
-                "service": "Simien Mountains Helicopter Tour",
-                "category": "Adventure",
-                "price": "ETB 45,000",
-                "why": "The ultimate luxury exploration experience."
+                "service": "Ethiopian Coffee Ceremony & Traditional Injera Feast",
+                "category": "Cultural Dining",
+                "price": "ETB 2,500",
+                "why": "You expressed interest in cultural immersion. This is the most authentic experience we offer."
             })
-            
+        elif dining_vibe == "premium":
+            recommendations.append({
+                "service": "1963 Restaurant – Chef's Tasting Menu",
+                "category": "Fine Dining",
+                "price": "ETB 8,500",
+                "why": "Our premium multi-course experience — matched to your dining preference."
+            })
+
+        # --- Dietary safety note ---
+        if dietary:
+            return json.dumps({
+                "dietary_flag": f"IMPORTANT: Guest has reported dietary restrictions: '{dietary}'. All recommendations above must be pre-screened with the kitchen.",
+                "recommendations": recommendations if recommendations else [{"service": "Chef Consultation", "category": "Safety", "price": "Complimentary", "why": f"Personalized menu created to match your dietary needs: {dietary}."}]
+            }, ensure_ascii=False)
+
         if not recommendations:
             recommendations.append({
                 "service": "Resort Signature Experience Package",
                 "category": "Premium",
                 "price": "ETB 8,500",
-                "why": "Our most popular all-in-one luxury offering."
+                "why": "Our most popular all-in-one luxury experience."
             })
-            
-        return json.dumps(recommendations, ensure_ascii=False)
+
+        return json.dumps({"recommendations": recommendations}, ensure_ascii=False)
     finally:
         db.close()
 
