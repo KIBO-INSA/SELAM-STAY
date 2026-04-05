@@ -65,7 +65,12 @@ export default function ResortMap() {
   };
 
   return (
-    <div className="fixed inset-0 z-[60] bg-stone-900 flex flex-col overflow-hidden">
+    <motion.div 
+      initial={{ backgroundColor: '#1c1917' }} 
+      animate={{ backgroundColor: '#fdfaf6' }} 
+      transition={{ duration: 2.5, ease: 'easeOut' }}
+      className="fixed inset-0 z-[60] flex flex-col overflow-hidden"
+    >
       
       {/* Dynamic Map Background */}
       <div className="absolute inset-0 pointer-events-none">
@@ -74,9 +79,9 @@ export default function ResortMap() {
           animate={{ scale: isLoaded ? 1.05 : 1.2, opacity: isLoaded ? 0.8 : 0 }}
           transition={{ duration: 30, repeat: Infinity, repeatType: "reverse" }}
           src="/resort_map.png" 
-          className="w-full h-full object-cover grayscale opacity-40 mix-blend-overlay"
+          className="w-full h-full object-cover opacity-90"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-950 via-transparent to-stone-950/40" />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#fdfaf6] via-[#fdfaf6]/60 to-[#fdfaf6]/80 pointer-events-none" />
       </div>
 
       {/* Header UI */}
@@ -85,7 +90,7 @@ export default function ResortMap() {
           initial={{ x: -20, opacity: 0 }}
           animate={{ x: 0, opacity: 1 }}
           onClick={() => navigate('/portal')}
-          className="pointer-events-auto bg-white/10 backdrop-blur-3xl border border-white/10 p-4 rounded-full text-white hover:bg-white/20 transition-all shadow-2xl"
+          className="pointer-events-auto bg-white/80 backdrop-blur-3xl border border-stone-200 p-4 rounded-full text-stone-900 hover:bg-white transition-all shadow-xl"
         >
           <ChevronLeft size={24} />
         </motion.button>
@@ -99,7 +104,7 @@ export default function ResortMap() {
              <Navigation size={14} className="animate-pulse" />
              <span>Resort Exploration</span>
            </div>
-           <h2 className="text-white text-3xl font-heading font-black uppercase tracking-tighter mix-blend-difference">
+           <h2 className="text-stone-900 text-3xl font-heading font-black uppercase tracking-tighter">
              The African Village
            </h2>
         </motion.div>
@@ -121,8 +126,8 @@ export default function ResortMap() {
             >
               <button 
                 onClick={() => setSelected(spot)}
-                className={`relative w-8 h-8 rounded-full border-2 bg-stone-950/80 backdrop-blur-md flex items-center justify-center transition-all duration-500 hover:scale-125 ${
-                  selected?.id === spot.id ? 'border-amber-500 ring-8 ring-amber-500/20' : 'border-white/40 hover:border-amber-400'
+                className={`relative w-8 h-8 rounded-full border-2 bg-white/90 backdrop-blur-md flex items-center justify-center transition-all duration-500 hover:scale-125 ${
+                  selected?.id === spot.id ? 'border-amber-500 ring-8 ring-amber-500/20' : 'border-stone-300 hover:border-amber-400'
                 }`}
               >
                 <div className={`w-2 h-2 rounded-full ${selected?.id === spot.id ? 'bg-amber-500 animate-ping' : 'bg-white'}`} />
@@ -136,7 +141,7 @@ export default function ResortMap() {
               
               {/* Tooltip Label */}
               <div className="absolute top-full mt-3 left-1/2 -translate-x-1/2 whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
-                 <span className="bg-black/60 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-amber-500 border border-white/10">
+                 <span className="bg-white/90 backdrop-blur-md px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-amber-600 border border-stone-200 shadow-xl">
                    {spot.name}
                  </span>
               </div>
@@ -154,7 +159,7 @@ export default function ResortMap() {
               initial={{ y: 100, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: 100, opacity: 0 }}
-              className="max-w-4xl mx-auto glass-card p-10 rounded-[3rem] border-white/10 backdrop-blur-3xl shadow-[0_50px_100px_rgba(0,0,0,0.8)] relative overflow-hidden"
+              className="max-w-4xl mx-auto bg-white/90 p-10 rounded-[3rem] border border-stone-200 backdrop-blur-3xl shadow-[0_50px_100px_rgba(0,0,0,0.1)] relative overflow-hidden"
             >
                {/* Background Glow */}
                <div className="absolute top-0 right-0 p-20 opacity-10 text-amber-500 pointer-events-none">
@@ -176,16 +181,16 @@ export default function ResortMap() {
 
                   <div className="flex-1 text-center md:text-left">
                      <div className="flex items-center justify-center md:justify-start gap-4 mb-2">
-                        <h3 className="text-white text-3xl font-heading font-black uppercase tracking-tighter">{selected.name}</h3>
-                        <span className="hidden sm:inline bg-white/10 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-white/40 border border-white/5">
+                        <h3 className="text-stone-900 text-3xl font-heading font-black uppercase tracking-tighter">{selected.name}</h3>
+                        <span className="hidden sm:inline bg-stone-100 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest text-stone-500 border border-stone-200">
                           {selected.type}
                         </span>
                      </div>
-                     <p className="text-gray-400 font-bold text-sm mb-6 leading-relaxed max-w-xl">{selected.desc}</p>
+                     <p className="text-stone-500 font-bold text-sm mb-6 leading-relaxed max-w-xl">{selected.desc}</p>
                      
                      <div className="flex flex-wrap justify-center md:justify-start gap-3">
                         {selected.amenities.map(a => (
-                          <div key={a} className="flex items-center gap-2 bg-white/5 px-4 py-2 rounded-2xl text-[10px] font-black uppercase text-gray-300 border border-white/5">
+                          <div key={a} className="flex items-center gap-2 bg-stone-100 px-4 py-2 rounded-2xl text-[10px] font-black uppercase text-stone-600 border border-stone-200">
                              <div className="w-1 h-1 rounded-full bg-amber-500" />
                              {a}
                           </div>
@@ -203,7 +208,7 @@ export default function ResortMap() {
                      </button>
                      <button 
                        onClick={() => setSelected(null)}
-                       className="text-white/40 font-black uppercase tracking-[0.3em] text-[9px] hover:text-white transition-colors py-2 text-center"
+                       className="text-stone-400 font-black uppercase tracking-[0.3em] text-[9px] hover:text-stone-900 transition-colors py-2 text-center"
                      >
                        Close Detail
                      </button>
@@ -218,7 +223,7 @@ export default function ResortMap() {
           <motion.div 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            className="text-center text-white/30 text-[10px] font-black uppercase tracking-[0.3em] mb-4"
+            className="text-center text-stone-400 text-[10px] font-black uppercase tracking-[0.3em] mb-4"
           >
             Tap a location pin to explore Kuriftu details
           </motion.div>
@@ -235,6 +240,6 @@ export default function ResortMap() {
          </div>
       </div>
 
-    </div>
+    </motion.div>
   );
 }

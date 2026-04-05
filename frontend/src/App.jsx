@@ -11,6 +11,7 @@ import ServiceRequestPage   from './pages/ServiceRequestPage';
 import Login                from './pages/Login';
 import Register             from './pages/Register';
 import Preference           from './pages/Preference';
+import ResortMap            from './pages/ResortMap';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function loadSession() {
@@ -106,6 +107,7 @@ export default function App() {
                 <Route path="/room-controls" element={<RoomControlPage roomNumber={roomNumber} />} />
                 <Route path="/services"      element={<ServiceRequestPage guestId={guestId} roomNumber={roomNumber} />} />
                 <Route path="/feedback"      element={<FeedbackPage guestId={guestId} />} />
+                <Route path="/map"           element={<ResortMap />} />
                 <Route path="*"              element={<Navigate to="/portal" replace />} />
               </>
             ) : (
