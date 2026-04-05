@@ -1,28 +1,30 @@
 import { useState } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import Nav                from './components/Nav';
-import SelamBot           from './components/SelamBot';
-import Dashboard          from './components/Dashboard';
-import FeedbackPage       from './pages/FeedbackPage';
-import GuestPortal        from './pages/GuestPortal';
-import RoomControlPage    from './pages/RoomControlPage';
-import ServiceRequestPage from './pages/ServiceRequestPage';
+import Navbar               from './components/Navbar';
+import FloatingChatButton   from './components/FloatingChatButton';
+import SelamBot             from './components/SelamBot';
+import Dashboard            from './components/Dashboard';
+import FeedbackPage         from './pages/FeedbackPage';
+import GuestPortal          from './pages/GuestPortal';
+import RoomControlPage      from './pages/RoomControlPage';
+import ServiceRequestPage   from './pages/ServiceRequestPage';
 
-// Login + Preference onboarding (NEW - only addition)
 import Login      from './pages/Login';
 import Preference from './pages/Preference';
 
 export default function App() {
   const [mood, setMood] = useState(null);
-
-  // --- NEW: login & preference state ---
-  const [user, setUser] = useState(null); // null = not logged in
+  const [user, setUser] = useState(null);
+  const [isManagerAuthenticated, setIsManagerAuthenticated] = useState(false);
   const [preferences, setPreferences] = useState({ food: '', drink: '', activity: '' });
 
   // If not logged in → show Login page only
   if (!user) {
     return (
-      <Login onLogin={(role) => setUser({ role, isFirstTime: true })} />
+      <Login onLogin={(role) => {
+        setUser({ role, isFirstTime: role === 'guest' });
+        if (role === 'manager') setIsManagerAuthenticated(true);
+      }} />
     );
   }
 
@@ -37,12 +39,11 @@ export default function App() {
     );
   }
 
-  // --- EVERYTHING BELOW IS UNCHANGED ---
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#FAFAF9] text-gray-900 font-sans flex flex-col">
-        <Nav />
-        <main className="pt-16 flex-1 flex flex-col">
+      <div className="min-h-screen bg-[#0D0A06] text-gray-100 font-sans flex flex-col">
+        <Navbar isManagerAuthenticated={isManagerAuthenticated} />
+        <main className="pt-20 flex-1 flex flex-col">
           <Routes>
             <Route path="/portal"        element={<GuestPortal setGlobalMood={setMood} />} />
             <Route path="/"              element={<SelamBot guestId="guest-1" mood={mood} />} />
@@ -53,6 +54,7 @@ export default function App() {
             <Route path="*"              element={<Navigate to="/portal" replace />} />
           </Routes>
         </main>
+        <FloatingChatButton />
       </div>
     </BrowserRouter>
   );
