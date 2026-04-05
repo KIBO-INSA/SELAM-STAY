@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Heart, Briefcase, Users, Flame, Coffee, Utensils, WheatOff, ArrowRight, ArrowLeft } from 'lucide-react';
 import { guestAPI } from '../services/api';
 
-export default function Preference({ preferences, setPreferences, onComplete }) {
+export default function Preference({ guestId, preferences, setPreferences, onComplete }) {
   const [step, setStep] = useState(1);
   const totalSteps = 3;
 
@@ -30,7 +30,7 @@ export default function Preference({ preferences, setPreferences, onComplete }) 
       setIsSaving(true);
       try {
         await guestAPI.updatePreferences({
-          guest_id: "guest-1", // Using dummy ID from App.jsx state for demo
+          guest_id: guestId, 
           food: preferences.food,
           drink: preferences.drink,
           activity: preferences.activity

@@ -10,9 +10,13 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from datetime import datetime, timedelta
-from models.database import init_db, SessionLocal, Guest, Room, Feedback, MaintenanceLog, Staff, InventoryItem, ServiceRequest
+import bcrypt
+from models.database import init_db, SessionLocal, Guest, Room, Feedback, MaintenanceLog, Staff, InventoryItem, ServiceRequest, User
 from ai.pricing import train_pricing_model
 from ai.sentiment import analyze_sentiment
+
+def hash_password(plain: str) -> str:
+    return bcrypt.hashpw(plain.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 def seed():
     print("🌱 Initializing database...")
@@ -34,16 +38,20 @@ def seed():
         db.add_all(rooms)
         print("  ✅ Rooms seeded")
 
+    # --- Legacy cleanup ---
+    db.query(Guest).filter(Guest.phone == None).delete(synchronize_session=False)
+    db.commit()
+
     # --- Guests ---
     if db.query(Guest).count() == 0:
         guests = [
-            Guest(name="Abebe Girma",    email="abebe@example.com",   language="am", room_id=1,
+            Guest(name="Abebe Girma",    email="abebe@example.com",   phone="+251911234567", password_hash=hash_password("guest123"), language="am", room_number="101", room_id=1,
                   check_in=datetime.utcnow() - timedelta(days=2)),
-            Guest(name="Sara Johnson",   email="sara@example.com",    language="en", room_id=3,
+            Guest(name="Sara Johnson",   email="sara@example.com",    phone="+251922345678", password_hash=hash_password("guest123"), language="en", room_number="201", room_id=3,
                   check_in=datetime.utcnow() - timedelta(days=1)),
-            Guest(name="Tigist Haile",   email="tigist@example.com",  language="am", room_id=5,
+            Guest(name="Tigist Haile",   email="tigist@example.com",  phone="+251933456789", password_hash=hash_password("guest123"), language="am", room_number="301", room_id=5,
                   check_in=datetime.utcnow()),
-            Guest(name="Michael Brown",  email="michael@example.com", language="en", room_id=6,
+            Guest(name="Michael Brown",  email="michael@example.com", phone="+14155552671",  password_hash=hash_password("guest123"), language="en", room_number="401", room_id=6,
                   check_in=datetime.utcnow() - timedelta(days=3)),
         ]
         db.add_all(guests)
@@ -138,6 +146,22 @@ def seed():
         ]
         db.add_all(requests)
         print("  ✅ Service requests seeded")
+
+    # --- Auth Users (Staff + Manager login accounts) ---
+    if db.query(User).count() == 0:
+        users = [
+            # Staff accounts — identifier = Employee ID
+            User(name="Dawit Bekele",  identifier="EMP-01", role="staff",   department="Front Desk",   password_hash=hash_password("staff123")),
+            User(name="Hana Tesfaye",  identifier="EMP-02", role="staff",   department="Housekeeping", password_hash=hash_password("staff123")),
+            User(name="Yonas Tadesse", identifier="EMP-03", role="staff",   department="Restaurant",   password_hash=hash_password("staff123")),
+            User(name="Meron Alemu",   identifier="EMP-04", role="staff",   department="Security",     password_hash=hash_password("staff123")),
+            User(name="Biruk Haile",   identifier="EMP-05", role="staff",   department="Maintenance",  password_hash=hash_password("staff123")),
+            # Manager accounts — identifier = Admin Code
+            User(name="Manager Admin", identifier="ADMIN-01", role="manager", department="Operations", password_hash=hash_password("manager123")),
+            User(name="GM Selam",      identifier="ADMIN-02", role="manager", department="General Management", password_hash=hash_password("manager123")),
+        ]
+        db.add_all(users)
+        print("  ✅ Auth users seeded (staff: EMP-01..05 / manager: ADMIN-01..02, password: staff123 / manager123)")
 
     db.commit()
     db.close()

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Header
 from sqlalchemy.orm import Session
 from datetime import datetime
 from typing import Optional
@@ -278,17 +278,36 @@ async def dashboard_tasks(
     db: Session = Depends(get_db),
     limit: int = 50,
     include_completed: bool = False,
+    authorization: Optional[str] = Header(None)
 ):
-    """Manager task schedule: service requests + assignment details.
+    """Manager/Staff task schedule with AI recommendations."""
+    user_role = "manager"
+    user_id = None
+    if authorization and authorization.startswith("Bearer "):
+        try:
+            token = authorization.split(" ", 1)[1]
+            from api.auth_routes import decode_token
+            payload = decode_token(token)
+            user_role = payload.get("role", "manager")
+            user_id = int(payload.get("sub")) if payload.get("sub") else None
+        except Exception:
+            pass
 
-    Designed to mirror the assignment info shown in chat and guest request lists.
-    """
     q = db.query(ServiceRequest)
     if not include_completed:
         q = q.filter(ServiceRequest.status != "completed")
+        
+    if user_role == "staff" and user_id:
+        q = q.filter(ServiceRequest.assigned_staff_id == user_id)
 
     tasks = q.order_by(ServiceRequest.created_at.desc()).limit(max(1, min(limit, 200))).all()
     staff_by_id = {s.id: s for s in db.query(Staff).all()}
+    
+    guests_by_id = {}
+    guest_ids = list({t.guest_id for t in tasks if getattr(t, "guest_id", None)})
+    if guest_ids:
+        guests = db.query(Guest).filter(Guest.id.in_(guest_ids)).all()
+        guests_by_id = {g.id: g for g in guests}
 
     def staff_payload(staff_id: Optional[int]):
         if not staff_id:
@@ -297,6 +316,36 @@ async def dashboard_tasks(
         if staff:
             return {"id": staff.id, "name": staff.name, "role": staff.role}
         return {"id": staff_id}
+        
+    def generate_ai_recommendation(task, guest):
+        if not guest:
+            return "Standard service execution recommended."
+            
+        prefs_raw = getattr(guest, "preferences", "{}") or "{}"
+        try:
+            prefs = json.loads(prefs_raw)
+        except Exception:
+            prefs = {}
+            
+        food_pref = prefs.get("food", "").lower()
+        drink_pref = prefs.get("drink", "").lower()
+        activity_pref = prefs.get("activity", "").lower()
+        
+        cat = (task.category or "").lower()
+        
+        if "room service" in cat or "food" in cat or "drink" in cat:
+            if food_pref or drink_pref:
+                items = [i for i in [food_pref, drink_pref] if i]
+                return f"AI Strategy: Guest enjoys {' and '.join(items)}. Proactively offer these when handling their request."
+        elif "housekeeping" in cat:
+            return "AI Strategy: Provide unobtrusive service. Pre-arrange the room to reflect a calm atmosphere."
+        elif "spa" in cat or "wellness" in cat:
+            return "AI Strategy: Emphasize our locally sourced relaxing treatments when conversing."
+        
+        if activity_pref:
+            return f"AI Strategy: The guest is here for {activity_pref}. Consider a brief mention of relevant on-property activities."
+            
+        return "AI Strategy: Connect warmly using the guest's name during service delivery."
 
     return {
         "tasks": [
@@ -311,54 +360,10 @@ async def dashboard_tasks(
                 "assigned_at": t.assigned_at.isoformat() if t.assigned_at else None,
                 "assignment_reason": t.assignment_reason,
                 "assigned_staff": staff_payload(t.assigned_staff_id),
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
-            }
-            for t in tasks
-        ]
-    }
-
-
-@router.get("/tasks")
-async def dashboard_tasks(
-    db: Session = Depends(get_db),
-    limit: int = 50,
-    include_completed: bool = False,
-):
-    """Manager task schedule: service requests + assignment details.
-
-    Designed to mirror the assignment info shown in chat and guest request lists.
-    """
-    q = db.query(ServiceRequest)
-    if not include_completed:
-        q = q.filter(ServiceRequest.status != "completed")
-
-    tasks = q.order_by(ServiceRequest.created_at.desc()).limit(max(1, min(limit, 200))).all()
-    staff_by_id = {s.id: s for s in db.query(Staff).all()}
-
-    def staff_payload(staff_id: Optional[int]):
-        if not staff_id:
-            return None
-        staff = staff_by_id.get(staff_id)
-        if staff:
-            return {"id": staff.id, "name": staff.name, "role": staff.role}
-        return {"id": staff_id}
-
-    return {
-        "tasks": [
-            {
-                "id": t.id,
-                "ref_id": t.id,
-                "category": t.category,
-                "room_number": t.room_number,
-                "description": t.description,
-                "status": t.status,
-                "priority": t.priority,
-                "assigned_at": t.assigned_at.isoformat() if t.assigned_at else None,
-                "assignment_reason": t.assignment_reason,
-                "assigned_staff": staff_payload(t.assigned_staff_id),
-                "created_at": t.created_at.isoformat() if t.created_at else None,
-                "updated_at": t.updated_at.isoformat() if t.updated_at else None,
+                "guest_name": guests_by_id.get(t.guest_id).name if getattr(t, "guest_id", None) and guests_by_id.get(t.guest_id) else None,
+                "ai_recommendation": generate_ai_recommendation(t, guests_by_id.get(t.guest_id) if getattr(t, "guest_id", None) else None),
+                "created_at": t.created_at.isoformat() if getattr(t, "created_at", None) else None,
+                "updated_at": t.updated_at.isoformat() if getattr(t, "updated_at", None) else None,
             }
             for t in tasks
         ]

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { dashboardAPI, sentimentAPI } from '../services/api';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -25,6 +25,10 @@ export default function Dashboard() {
   const [tasksError, setTasksError] = useState(null);
   const [currency, setCurrency] = useState('ETB');
   const [selectedProperty, setSelectedProperty] = useState('African Village');
+  const [user, setUser] = useState(() => {
+    try { return JSON.parse(localStorage.getItem('selam_user')) || {}; }
+    catch { return {}; }
+  });
 
   useEffect(() => {
     refreshData();
@@ -120,21 +124,23 @@ export default function Dashboard() {
           </div>
 
           <div className="flex items-center gap-3">
-            <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-xl">
-              {['overview', 'cultural', 'revenue', 'guests'].map(t => (
-                <button
-                  key={t}
-                  onClick={() => setActiveTab(t)}
-                  className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
-                    activeTab === t 
-                    ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]' 
-                    : 'text-gray-400 hover:text-white'
-                  }`}
-                >
-                  {t}
-                </button>
-              ))}
-            </div>
+            {user.role !== 'staff' && (
+              <div className="flex bg-white/5 p-1 rounded-2xl border border-white/10 backdrop-blur-xl">
+                {['overview', 'cultural', 'revenue', 'guests'].map(t => (
+                  <button
+                    key={t}
+                    onClick={() => setActiveTab(t)}
+                    className={`px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all ${
+                      activeTab === t 
+                      ? 'bg-amber-500 text-black shadow-[0_0_20px_rgba(245,158,11,0.4)]' 
+                      : 'text-gray-400 hover:text-white'
+                    }`}
+                  >
+                    {t}
+                  </button>
+                ))}
+              </div>
+            )}
             <button 
               onClick={refreshData}
               className="p-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-2xl transition-colors"
@@ -145,7 +151,8 @@ export default function Dashboard() {
         </header>
 
         {/* Global AI Metrics */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        {user.role !== 'staff' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="relative group cursor-pointer" onClick={() => setCurrency(currency === 'ETB' ? 'USD' : 'ETB')}>
             <MetricCard 
               label={`Total Daily Revenue (${currency})`} 
@@ -181,7 +188,8 @@ export default function Dashboard() {
             icon={AlertCircle}
             color="rose"
           />
-        </div>
+          </div>
+        )}
 
         <AnimatePresence mode="wait">
           <motion.div
@@ -189,13 +197,15 @@ export default function Dashboard() {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.02 }}
-            className="grid grid-cols-1 lg:grid-cols-3 gap-6"
+            className={`grid grid-cols-1 ${user.role !== 'staff' ? 'lg:grid-cols-3' : ''} gap-6`}
           >
             {/* OVERVIEW CONTENT */}
             {activeTab === 'overview' && (
               <>
-                {/* Revenue Forecast Chart */}
-                <div className="lg:col-span-2 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
+                {user.role !== 'staff' && (
+                  <>
+                    {/* Revenue Forecast Chart */}
+                    <div className="lg:col-span-2 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
                   <div className="flex items-center justify-between mb-8">
                     <h3 className="text-xl font-heading font-bold flex items-center gap-3">
                       <TrendingUp className="text-blue-500" />
@@ -304,6 +314,8 @@ export default function Dashboard() {
                     )}
                   </div>
                 </div>
+                </>
+                )}
 
                 {/* Task Schedule */}
                 <div className="lg:col-span-3 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
@@ -327,10 +339,10 @@ export default function Dashboard() {
                         <thead>
                           <tr className="text-left text-xs uppercase tracking-widest text-gray-400 border-b border-white/10">
                             <th className="py-3 pr-4">Ref</th>
+                            <th className="py-3 pr-4">Guest Info</th>
                             <th className="py-3 pr-4">Category</th>
-                            <th className="py-3 pr-4">Room</th>
                             <th className="py-3 pr-4">Status</th>
-                            <th className="py-3 pr-4">Assigned Staff</th>
+                            {user.role !== 'staff' && <th className="py-3 pr-4">Assigned Staff</th>}
                             <th className="py-3">Assigned At</th>
                           </tr>
                         </thead>
@@ -346,18 +358,42 @@ export default function Dashboard() {
                                 : 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30';
 
                             return (
-                              <tr key={t.id} className="border-b border-white/5 last:border-b-0">
-                                <td className="py-3 pr-4 font-mono text-xs text-gray-300">#{t.ref_id || t.id}</td>
-                                <td className="py-3 pr-4 text-gray-200">{t.category || '—'}</td>
-                                <td className="py-3 pr-4 text-gray-200">{t.room_number || '—'}</td>
-                                <td className="py-3 pr-4">
-                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
-                                    {t.status || '—'}
-                                  </span>
-                                </td>
-                                <td className="py-3 pr-4 text-gray-200">{staffLabel}</td>
-                                <td className="py-3 text-gray-400">{assignedAt}</td>
-                              </tr>
+                              <React.Fragment key={t.id}>
+                                <tr className="border-t border-white/5">
+                                  <td className="py-4 pr-4 font-mono text-xs text-gray-300 align-top">#{t.ref_id || t.id}</td>
+                                  <td className="py-4 pr-4 align-top">
+                                    <p className="text-gray-200 font-bold mb-0.5">{t.guest_name || 'Anonymous'}</p>
+                                    <p className="text-xs text-amber-500 uppercase tracking-widest">{t.room_number || 'No Room'}</p>
+                                  </td>
+                                  <td className="py-4 pr-4 text-gray-200 align-top">
+                                    <p className="font-bold">{t.category || '—'}</p>
+                                    <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] truncate" title={t.description}>{t.description}</p>
+                                  </td>
+                                  <td className="py-4 pr-4 align-top">
+                                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${statusColor}`}>
+                                      {t.status || '—'}
+                                    </span>
+                                  </td>
+                                  {user.role !== 'staff' && <td className="py-4 pr-4 text-gray-200 align-top">{staffLabel}</td>}
+                                  <td className="py-4 text-gray-400 text-xs align-top">{assignedAt}</td>
+                                </tr>
+                                {/* AI Strategic Highlight Sub-Row */}
+                                {t.ai_recommendation && (
+                                  <tr className="border-b border-white/5 last:border-b-0">
+                                    <td colSpan={user.role !== 'staff' ? 6 : 5} className="pb-4 pt-1">
+                                      <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 flex gap-3 text-sm">
+                                        <div className="mt-0.5 text-amber-500">
+                                          <BrainCircuit size={16} />
+                                        </div>
+                                        <div className="flex-1">
+                                          <p className="text-amber-500 font-bold text-[10px] uppercase tracking-widest mb-1 leading-none">{t.guest_name ? `${t.guest_name}'s ` : ''}Personalized Approach</p>
+                                          <p className="text-gray-300 leading-snug">{t.ai_recommendation}</p>
+                                        </div>
+                                      </div>
+                                    </td>
+                                  </tr>
+                                )}
+                              </React.Fragment>
                             );
                           })}
                         </tbody>
@@ -370,70 +406,6 @@ export default function Dashboard() {
                   ))}
                 </div>
 
-                {/* Task Schedule */}
-                <div className="lg:col-span-3 bg-white/5 border border-white/10 p-6 rounded-[2.5rem] backdrop-blur-2xl">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-xl font-heading font-bold flex items-center gap-3">
-                      <Activity className="text-amber-500" />
-                      Task Schedule
-                    </h3>
-                    <span className="text-xs text-gray-400">
-                      {tasks?.length || 0} active
-                    </span>
-                  </div>
-
-                  {tasksError ? (
-                    <div className="p-4 rounded-2xl bg-rose-500/5 border border-rose-500/20 text-sm text-rose-300">
-                      Failed to load task schedule.
-                    </div>
-                  ) : (tasks?.length ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="text-left text-xs uppercase tracking-widest text-gray-400 border-b border-white/10">
-                            <th className="py-3 pr-4">Ref</th>
-                            <th className="py-3 pr-4">Category</th>
-                            <th className="py-3 pr-4">Room</th>
-                            <th className="py-3 pr-4">Status</th>
-                            <th className="py-3 pr-4">Assigned Staff</th>
-                            <th className="py-3">Assigned At</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {tasks.slice(0, 20).map(t => {
-                            const staff = t.assigned_staff;
-                            const staffLabel = staff?.name ? `${staff.name}${staff.role ? ` (${staff.role})` : ''}` : (staff?.id ? `Staff #${staff.id}` : 'Unassigned');
-                            const assignedAt = t.assigned_at ? new Date(t.assigned_at).toLocaleString() : '—';
-                            const statusColor = t.status === 'in_progress'
-                              ? 'bg-blue-500/15 text-blue-300 ring-1 ring-blue-500/30'
-                              : t.status === 'pending'
-                                ? 'bg-amber-500/15 text-amber-300 ring-1 ring-amber-500/30'
-                                : 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/30';
-
-                            return (
-                              <tr key={t.id} className="border-b border-white/5 last:border-b-0">
-                                <td className="py-3 pr-4 font-mono text-xs text-gray-300">#{t.ref_id || t.id}</td>
-                                <td className="py-3 pr-4 text-gray-200">{t.category || '—'}</td>
-                                <td className="py-3 pr-4 text-gray-200">{t.room_number || '—'}</td>
-                                <td className="py-3 pr-4">
-                                  <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${statusColor}`}>
-                                    {t.status || '—'}
-                                  </span>
-                                </td>
-                                <td className="py-3 pr-4 text-gray-200">{staffLabel}</td>
-                                <td className="py-3 text-gray-400">{assignedAt}</td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 text-sm text-gray-300">
-                      No active tasks right now.
-                    </div>
-                  ))}
-                </div>
               </>
             )}
 

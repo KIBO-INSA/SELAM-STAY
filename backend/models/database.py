@@ -14,14 +14,18 @@ Base = declarative_base()
 
 class Guest(Base):
     __tablename__ = "guests"
-    id          = Column(Integer, primary_key=True, index=True)
-    name        = Column(String)
-    email       = Column(String, unique=True)
-    language    = Column(String, default="en")  # "en" or "am"
-    preferences = Column(String, default="{}")   # JSON string
-    check_in    = Column(DateTime, default=datetime.utcnow)
-    check_out   = Column(DateTime, nullable=True)
-    room_id     = Column(Integer, nullable=True)
+    id            = Column(Integer, primary_key=True, index=True)
+    name          = Column(String)
+    email         = Column(String, unique=True, nullable=True)
+    phone         = Column(String, unique=True, nullable=True)
+    password_hash = Column(String, nullable=True)
+    language      = Column(String, default="en")  # "en" or "am"
+    preferences   = Column(String, default="{}")  # JSON string
+    room_number   = Column(String, nullable=True)  # e.g. "101"
+    check_in      = Column(DateTime, default=datetime.utcnow)
+    check_out     = Column(DateTime, nullable=True)
+    room_id       = Column(Integer, nullable=True)
+    special_notes = Column(String, nullable=True)
 
 
 class Room(Base):
@@ -64,10 +68,23 @@ class MaintenanceLog(Base):
 
 class Staff(Base):
     __tablename__ = "staff"
-    id       = Column(Integer, primary_key=True, index=True)
-    name     = Column(String)
-    role     = Column(String)
-    days_off = Column(String, default="[]")  # JSON list of weekday ints
+    id            = Column(Integer, primary_key=True, index=True)
+    name          = Column(String)
+    role          = Column(String)
+    days_off      = Column(String, default="[]")  # JSON list of weekday ints
+
+
+class User(Base):
+    """Accounts for Staff and Manager roles — seeded by admin."""
+    __tablename__ = "users"
+    id                = Column(Integer, primary_key=True, index=True)
+    name              = Column(String)
+    identifier        = Column(String, unique=True)  # emp_id or admin_code
+    role              = Column(String)               # "staff" or "manager"
+    department        = Column(String, nullable=True)
+    property_location = Column(String, default="African Village")
+    password_hash     = Column(String)
+    is_active         = Column(Boolean, default=True)
 
 
 class InventoryItem(Base):
@@ -168,17 +185,29 @@ def init_db():
     Base.metadata.create_all(bind=engine)
 
     # Lightweight SQLite migrations (add missing columns only)
-    # Note: create_all does not ALTER existing tables.
     if str(engine.url).startswith("sqlite"):
         with engine.begin() as conn:
             def _existing_cols(table: str) -> set:
                 rows = conn.execute(text(f"PRAGMA table_info({table})")).fetchall()
-                # PRAGMA table_info returns: cid, name, type, notnull, dflt_value, pk
                 return {r[1] for r in rows}
 
             def _add_col(table: str, col_name: str, col_type_sql: str, default_sql: str | None = None):
                 default_clause = f" DEFAULT {default_sql}" if default_sql is not None else ""
                 conn.execute(text(f"ALTER TABLE {table} ADD COLUMN {col_name} {col_type_sql}{default_clause}"))
+
+            # guests: add auth + phone + room_number + special_notes
+            try:
+                cols = _existing_cols("guests")
+                if "password_hash" not in cols:
+                    _add_col("guests", "password_hash", "TEXT")
+                if "phone" not in cols:
+                    _add_col("guests", "phone", "TEXT")
+                if "room_number" not in cols:
+                    _add_col("guests", "room_number", "TEXT")
+                if "special_notes" not in cols:
+                    _add_col("guests", "special_notes", "TEXT")
+            except Exception:
+                pass
 
             # service_requests: metadata + assignment fields
             try:
@@ -192,7 +221,6 @@ def init_db():
                 if "assignment_reason" not in cols:
                     _add_col("service_requests", "assignment_reason", "TEXT")
             except Exception:
-                # Best-effort: don't block app startup if migration fails
                 pass
 
             # conversation_history: optional intent memory

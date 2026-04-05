@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import {
-  MessageSquare, Home, Bell, ShieldCheck, Lock, Menu, X
+  MessageSquare, Home, Bell, ShieldCheck, Lock, Menu, X, LogOut, UserCircle
 } from 'lucide-react';
 
-export default function Navbar({ isManagerAuthenticated }) {
+export default function Navbar({ isManagerAuthenticated, user, onLogout }) {
   const loc = useLocation();
   const path = loc.pathname;
   const [scrolled, setScrolled] = useState(false);
@@ -63,7 +63,7 @@ export default function Navbar({ isManagerAuthenticated }) {
 
           {/* ── Desktop Nav ── */}
           <div className="hidden md:flex items-center gap-1">
-            {guestLinks.map(l => {
+            {(!user || user.role === 'guest') && guestLinks.map(l => {
               const Icon = l.icon;
               const isActive = path === l.to;
               return (
@@ -85,19 +85,47 @@ export default function Navbar({ isManagerAuthenticated }) {
               );
             })}
 
-            <div className="w-px h-8 bg-white/10 mx-3" />
+            {user && user.role !== 'guest' && (
+              <>
+                <div className="w-px h-8 bg-white/10 mx-3" />
+                <Link
+                  to="/dashboard"
+                  className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${
+                    isDashboard
+                      ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-coffee-950 shadow-lg shadow-amber-500/30'
+                      : 'text-stone-400 border border-white/10 hover:border-amber-500/40 hover:text-amber-400 hover:bg-amber-500/5'
+                  }`}
+                >
+                  {isManagerAuthenticated ? <ShieldCheck size={16} /> : <Lock size={16} />}
+                  <span>Manager Hub</span>
+                </Link>
+              </>
+            )}
 
-            <Link
-              to="/dashboard"
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold tracking-wide transition-all duration-300 ${
-                isDashboard
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-coffee-950 shadow-lg shadow-amber-500/30'
-                  : 'text-stone-400 border border-white/10 hover:border-amber-500/40 hover:text-amber-400 hover:bg-amber-500/5'
-              }`}
-            >
-              {isManagerAuthenticated ? <ShieldCheck size={16} /> : <Lock size={16} />}
-              <span>Manager Hub</span>
-            </Link>
+            {/* ── User + Logout ── */}
+            <div className="w-px h-8 bg-white/10 mx-1" />
+            {user && (
+              <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 border border-white/10">
+                  <UserCircle size={16} className="text-amber-400" />
+                  <span className="text-white text-xs font-semibold max-w-[120px] truncate">
+                    {user.name?.split(' ')[0]}
+                  </span>
+                  {user.room_number && (
+                    <span className="text-amber-500/70 text-[10px] font-black uppercase tracking-widest">
+                      · {user.room_number}
+                    </span>
+                  )}
+                </div>
+                <button
+                  onClick={onLogout}
+                  title="Sign out"
+                  className="p-2 rounded-xl text-stone-400 hover:text-red-400 hover:bg-red-500/10 border border-white/10 hover:border-red-500/20 transition-all duration-200"
+                >
+                  <LogOut size={15} />
+                </button>
+              </div>
+            )}
           </div>
 
           {/* ── Mobile Hamburger ── */}
@@ -118,7 +146,7 @@ export default function Navbar({ isManagerAuthenticated }) {
         }`}
       >
         <div className="px-4 pb-4 pt-2 space-y-1 bg-coffee-950/98 border-t border-white/5">
-          {guestLinks.map(l => {
+          {(!user || user.role === 'guest') && guestLinks.map(l => {
             const Icon = l.icon;
             const isActive = path === l.to;
             return (
@@ -137,18 +165,31 @@ export default function Navbar({ isManagerAuthenticated }) {
             );
           })}
 
-          <div className="border-t border-white/10 pt-2 mt-2">
-            <Link
-              to="/dashboard"
-              className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
-                isDashboard
-                  ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-coffee-950'
-                  : 'text-stone-400 hover:text-amber-400 hover:bg-amber-500/5'
-              }`}
-            >
-              {isManagerAuthenticated ? <ShieldCheck size={18} /> : <Lock size={18} />}
-              <span>Manager Hub</span>
-            </Link>
+          <div className={`${(!user || user.role === 'guest') ? 'border-t border-white/10 pt-2 mt-2' : ''}`}>
+            {user && user.role !== 'guest' && (
+              <Link
+                to="/dashboard"
+                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-all duration-200 ${
+                  isDashboard
+                    ? 'bg-gradient-to-r from-amber-500 to-amber-600 text-coffee-950'
+                    : 'text-stone-400 hover:text-amber-400 hover:bg-amber-500/5'
+                }`}
+              >
+                {isManagerAuthenticated ? <ShieldCheck size={18} /> : <Lock size={18} />}
+                <span>Manager Hub</span>
+              </Link>
+            )}
+
+            {/* Logout */}
+            {user && onLogout && (
+              <button
+                onClick={onLogout}
+                className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-semibold text-red-400 hover:bg-red-500/10 transition-all duration-200 w-full text-left"
+              >
+                <LogOut size={18} />
+                <span>Sign out ({user.name?.split(' ')[0]})</span>
+              </button>
+            )}
           </div>
         </div>
       </div>

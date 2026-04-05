@@ -6,6 +6,21 @@ export const API_PREFIX = apiRoot ? `${apiRoot}/api` : '/api';
 
 const api = axios.create({ baseURL: API_PREFIX });
 
+// Attach JWT token to every request automatically
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('selam_token');
+  if (token) {
+    config.headers['Authorization'] = `Bearer ${token}`;
+  }
+  return config;
+});
+
+export const authAPI = {
+  register: (data)  => api.post('/auth/register', data),
+  login:    (data)  => api.post('/auth/login', data),
+  me:       (token) => api.get('/auth/me', { headers: { Authorization: `Bearer ${token}` } }),
+};
+
 export const conciergeAPI = {
   chat:      (guest_id, message) => api.post('/concierge/chat', { guest_id, message }),
   reset:     (guest_id)          => api.post('/concierge/reset', { guest_id }),
@@ -62,3 +77,4 @@ export const guestAPI = {
   updatePreferences: (data) => api.post('/guest/preferences', data),
   getProfile: (guestId)     => api.get(`/guest/${guestId}`),
 };
+
