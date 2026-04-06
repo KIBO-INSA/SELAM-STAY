@@ -8,7 +8,7 @@ def migrate():
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
-    tables_to_migrate = ["rooms", "feedback", "inventory", "service_requests"]
+    tables_to_migrate = ["rooms", "feedback", "inventory", "service_requests", "users"]
     
     for table in tables_to_migrate:
         try:
