@@ -13,6 +13,7 @@ router = APIRouter()
 class ChatRequest(BaseModel):
     guest_id: str
     message: str
+    mode: str = "service"
 
 
 class ResetRequest(BaseModel):
@@ -67,7 +68,7 @@ async def chat(req: ChatRequest):
         db.commit()
 
         # 2-4) Run orchestrator (reuses same DB session)
-        result = await handle_guest_message(req.guest_id, req.message, db=db)
+        result = await handle_guest_message(req.guest_id, req.message, mode=req.mode, db=db)
 
         assignment = None
         if result.created_request_id:

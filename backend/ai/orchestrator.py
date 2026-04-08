@@ -14,7 +14,7 @@ from models.database import (
 )
 
 from ai.slots_config import INTENT_SLOTS, INTENT_TO_CATEGORY
-from ai.concierge import chat_with_selam
+from ai.concierge import chat_with_selam, generate_staff_recommendation
 from services.fallback_answer_service import try_answer
 
 
@@ -132,6 +132,16 @@ def detect_intent(message: str) -> Optional[str]:
 
     if has_any("late checkout", "late check out", "checkout", "check out", "extend checkout"):
         matches.append("late_checkout")
+
+    # Mode pivots
+    if has_any("plan", "schedule", "itinerary", "activities", "what to do"):
+        matches.append("__pivot_planning__")
+    
+    if has_any("recommend", "recommendation", "suggest", "vibe", "hidden gem", "what is good"):
+        matches.append("__pivot_recommendation__")
+
+    if has_any("cancel", "nevermind", "never mind", "disregard", "stop", "exit", "reset"):
+        matches.append("__cancel__")
 
     # Only allow one intent; if ambiguous, force clarification.
     unique = []
@@ -424,7 +434,7 @@ def _slot_prompt(intent: str, slot: str) -> str:
     if slot == "date":
         return "Which date? (today/tomorrow/Monday or YYYY-MM-DD)"
     if slot == "time":
-                    "What would you like to do next? I can help with room service (food delivery), housekeeping (towels/cleaning/minibar), spa booking, transport, maintenance, or late checkout."
+        return "What time would you like? (e.g., 2 PM or 15:30)"
 
     return f"Please provide {slot}."
 
@@ -499,21 +509,35 @@ def _auto_assign_staff(db, service: ServiceRequest) -> Tuple[Optional[int], Opti
     return chosen.id, reason
 
 
-def _create_service_request(db, guest_id: str, intent: str, slots: dict) -> int:
+async def _create_service_request(db, guest_id: str, intent: str, slots: dict) -> int:
     gid = int(str(guest_id).replace("guest-", ""))
     room_number = _get_guest_room_number(db, guest_id)
     category = INTENT_TO_CATEGORY.get(intent, "Special")
 
+    # 1. Parse Scheduled Time
+    scheduled_at = None
+    time_str = slots.get("time")
+    date_str = slots.get("date") or date.today().isoformat()
+    
+    if time_str:
+        try:
+            dt_base = datetime.fromisoformat(date_str)
+            if "PM" in time_str.upper() or "AM" in time_str.upper():
+                t_obj = datetime.strptime(time_str.upper(), "%I:%M %p").time()
+            else:
+                t_obj = datetime.strptime(time_str, "%H:%M").time()
+            scheduled_at = datetime.combine(dt_base.date(), t_obj)
+        except Exception:
+            scheduled_at = datetime.utcnow() + timedelta(hours=1)
+
+    # 2. Build Description
     if intent == "towels":
         description = f"Fresh towels: {slots.get('quantity')} at {slots.get('time')}"
     elif intent == "food_order":
         description = f"Food order: {slots.get('quantity')} × {slots.get('item')} at {slots.get('time')}"
     elif intent == "housekeeping":
         details = slots.get("details")
-        if details:
-            description = f"Housekeeping ({details}) at {slots.get('time')}"
-        else:
-            description = f"Housekeeping at {slots.get('time')}"
+        description = f"Housekeeping ({details}) at {slots.get('time')}" if details else f"Housekeeping at {slots.get('time')}"
     elif intent == "transport_request":
         description = f"Transport to {slots.get('destination')} on {slots.get('date')} at {slots.get('time')}"
     elif intent == "maintenance_request":
@@ -525,13 +549,18 @@ def _create_service_request(db, guest_id: str, intent: str, slots: dict) -> int:
     else:
         description = f"Request: {intent} ({json.dumps(slots, ensure_ascii=False)})"
 
+    # 3. Generate AI Personalization Recommendation
+    staff_rec = await generate_staff_recommendation(db, gid, category, description)
+
     service = ServiceRequest(
         guest_id=gid,
         room_number=room_number,
         category=category,
         description=description,
-        priority="normal",
+        priority="high" if slots.get("urgency") == "urgent" else "normal",
         status="pending",
+        staff_recommendation=staff_rec,
+        scheduled_at=scheduled_at,
         metadata_json=json.dumps(slots or {}, ensure_ascii=False),
         created_at=datetime.utcnow(),
         updated_at=datetime.utcnow(),
@@ -550,8 +579,12 @@ def _create_service_request(db, guest_id: str, intent: str, slots: dict) -> int:
     return service.id
 
 
-async def handle_guest_message(guest_id: str, message: str, *, db=None) -> OrchestratorResult:
-    """Main entry: stateful, event-driven workflow orchestrator."""
+async def handle_guest_message(guest_id: str, message: str, mode: str = "service", db=None) -> OrchestratorResult:
+    """Main entry: stateful, event-driven workflow orchestrator.
+    
+    Args:
+        mode: Core operational mode. 'service' (structured tasks), 'planning' (itinerary/creative), 'recommendation' (open suggestions).
+    """
 
     owns_db = db is None
     if owns_db:
@@ -573,6 +606,40 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
 
         text = (message or "").strip()
         lower = text.lower()
+
+        # Handle explicit cancels or pivots
+        user_intent = detect_intent(text)
+        if user_intent == "__cancel__":
+            state.active_intent = None
+            state.conversation_stage = "idle"
+            state.set_collected({})
+            db.commit()
+            return OrchestratorResult("Understood. I've cancelled that request. What else can I help you with?")
+
+        if user_intent in {"__pivot_planning__", "__pivot_recommendation__"}:
+            # Reset any active service flow and move to LLM-driven planning/recommendation
+            state.active_intent = None
+            state.conversation_stage = "idle"
+            state.set_collected({})
+            db.commit()
+            mode = "planning" if user_intent == "__pivot_planning__" else "recommendation"
+            # Fall through to the mode-based logic
+
+        # ── Mode Aware Auto-Switching ──────────────────────────────────────
+        # Even if they are in 'planning' mode, if they ask for towels or room service, switch them instantly to service flow.
+        if mode in {"planning", "recommendation"} and user_intent and user_intent not in {"__pivot_planning__", "__pivot_recommendation__", "__ambiguous__"}:
+            mode = "service"
+
+        # If they are in planning or recommendation mode, bypass rigid slot filling and go straight to LLM
+        if mode in {"planning", "recommendation"} and state.conversation_stage in {"idle", "idle_silent"}:
+            reply = try_answer(text)
+            if not reply:
+                reply = await chat_with_selam(guest_id, text, db=db, persist=False)
+            if not state.greeted:
+                state.greeted = True
+            state.updated_at = datetime.utcnow()
+            db.commit()
+            return OrchestratorResult(reply)
 
         # If the guest says "yes" outside a confirmation stage, treat it as a prompt for next action.
         if state.conversation_stage in {"idle", "idle_silent"} and lower in {"yes", "yep", "yeah", "ok", "okay", "sure"}:
@@ -603,7 +670,32 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
                 next_slot = get_next_missing_slot(intent, collected) or "time"
                 return OrchestratorResult(f"Hi again - to continue: {_slot_prompt(intent, next_slot)}")
 
-            if _looks_like_side_question(text) or detect_intent(text) not in {None, intent, "__ambiguous__"}:
+            new_intent = detect_intent(text)
+            if new_intent and new_intent not in {intent, "__ambiguous__"}:
+                # PIVOT: The guest is asking for something completely different.
+                # Discard the current workflow and start the new one.
+                state.active_intent = new_intent
+                state.conversation_stage = "slot_filling"
+                state.set_collected({})
+                state.set_pending(INTENT_SLOTS.get(new_intent, []))
+                
+                # Try to extract slots from this pivoting message
+                new_collected = extract_slots(new_intent, text)
+                state.set_collected(new_collected)
+                
+                missing = get_next_missing_slot(new_intent, new_collected)
+                db.commit()
+                
+                pivot_msg = f"Understood. Let's switch to your {new_intent.replace('_', ' ')} request instead.\n\n"
+                if missing:
+                    return OrchestratorResult(f"{pivot_msg}{_slot_prompt(new_intent, missing)}")
+                
+                state.conversation_stage = "confirming"
+                db.commit()
+                room = _get_guest_room_number(db, guest_id)
+                return OrchestratorResult(f"{pivot_msg}Confirm: request {_format_slots(new_intent, new_collected)} for Room {room}? (yes/no)")
+
+            if _looks_like_side_question(text):
                 answer = try_answer(text)
                 if not answer:
                     answer = await chat_with_selam(guest_id, text, db=db, persist=False)
@@ -613,7 +705,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
                     follow = f"Please reply yes or no to confirm {_format_slots(intent, collected)} for Room {room}."
                 else:
                     follow = _slot_prompt(intent, next_slot) if next_slot else "When you're ready, say 'yes' to confirm."
-                return OrchestratorResult(f"{answer}\n\nTo continue your {intent} request: {follow}")
+                return OrchestratorResult(f"{answer}\n\nTo continue your {intent.replace('_', ' ')} request: {follow}")
 
             extracted = extract_slots(intent, text)
             has_new_slot_value = any(
@@ -636,7 +728,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
             if state.greeted and _is_greeting(text):
                 return OrchestratorResult("Hi again - how can I help?")
 
-            intent = detect_intent(text)
+            intent = detected_intent
             if intent == "__ambiguous__":
                 return OrchestratorResult(
                     "I can help - do you want room service, towels, housekeeping, transport, maintenance, spa booking, or late checkout? (Pick one)"
@@ -740,7 +832,7 @@ async def handle_guest_message(guest_id: str, message: str, *, db=None) -> Orche
                 return OrchestratorResult(f"Okay - let's update that. {_slot_prompt(intent, first)}")
 
             # Execute
-            request_id = _create_service_request(db, guest_id, intent, collected)
+            request_id = await _create_service_request(db, guest_id, intent, collected)
 
             state.active_intent = None
             state.conversation_stage = "idle_silent"

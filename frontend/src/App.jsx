@@ -96,9 +96,9 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="min-h-screen bg-[#0D0A06] text-gray-100 font-sans flex flex-col">
+      <div className="h-screen bg-[#0D0A06] text-gray-100 font-sans flex flex-col overflow-hidden">
         <Navbar isManagerAuthenticated={isManagerAuthenticated} user={user} onLogout={handleLogout} />
-        <main className="pt-20 flex-1 flex flex-col">
+        <main className="pt-20 flex-1 flex flex-col min-h-0 overflow-hidden">
           <Routes>
             {user.role === 'guest' ? (
               <>

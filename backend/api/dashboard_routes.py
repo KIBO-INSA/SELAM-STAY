@@ -361,13 +361,25 @@ async def dashboard_tasks(
                 "assignment_reason": t.assignment_reason,
                 "assigned_staff": staff_payload(t.assigned_staff_id),
                 "guest_name": guests_by_id.get(t.guest_id).name if getattr(t, "guest_id", None) and guests_by_id.get(t.guest_id) else None,
-                "ai_recommendation": generate_ai_recommendation(t, guests_by_id.get(t.guest_id) if getattr(t, "guest_id", None) else None),
+                "ai_recommendation": t.staff_recommendation if getattr(t, "staff_recommendation", None) else generate_ai_recommendation(t, guests_by_id.get(t.guest_id) if getattr(t, "guest_id", None) else None),
+                "scheduled_at": t.scheduled_at.isoformat() if getattr(t, "scheduled_at", None) else None,
                 "created_at": t.created_at.isoformat() if getattr(t, "created_at", None) else None,
                 "updated_at": t.updated_at.isoformat() if getattr(t, "updated_at", None) else None,
             }
             for t in tasks
         ]
     }
+
+@router.post("/tasks/{task_id}/complete")
+async def complete_task(task_id: int, db: Session = Depends(get_db)):
+    """Mark a service request as completed."""
+    task = db.query(ServiceRequest).filter(ServiceRequest.id == task_id).first()
+    if not task:
+        return {"error": "Task not found."}
+    task.status = "completed"
+    task.updated_at = datetime.utcnow()
+    db.commit()
+    return {"status": "success", "task_id": task_id}
 
 @router.get("/guest/villa-theme/{guest_id}")
 async def get_guest_villa_theme(guest_id: str, db: Session = Depends(get_db)):
