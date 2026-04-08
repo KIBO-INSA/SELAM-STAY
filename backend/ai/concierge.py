@@ -88,13 +88,23 @@ def create_resort_service_request(guest_id: str, category: str, description: str
         gid = int(str(guest_id).replace("guest-", ""))
         guest = db.query(Guest).filter(Guest.id == gid).first()
         room = db.query(Room).filter(Room.id == guest.room_id).first() if guest else None
+        
+        # 1. Generate AI Personalization Recommendation
+        # Since this is a synchronous tool called by the SDK, we use anyio to run the async helper
+        try:
+            import anyio
+            staff_rec = anyio.run(generate_staff_recommendation, db, gid, category, description)
+        except Exception:
+            staff_rec = "Connect warmly using the guest's name during service delivery."
+
         req = ServiceRequest(
             guest_id=gid,
             room_number=room.room_number if room else "N/A",
             category=category,
             description=description,
             status="pending",
-            priority="normal"
+            priority="normal",
+            staff_recommendation=staff_rec
         )
         db.add(req)
         db.commit()
@@ -292,17 +302,50 @@ def get_villa_cultural_context(guest_id: str) -> str:
 
 # All tools for Automatic Function Calling
 TOOLS = [
-    get_resort_knowledge,
-    get_guest_stay_details,
-    create_resort_service_request,
-    check_service_request_status,
-    get_time_aware_suggestion,
-    get_personalized_recommendations,
+    request_resort_maintenance,
     get_villa_cultural_context,
     book_spa_service,
     reserve_dining_table,
-    request_resort_maintenance
 ]
+
+# --- Internal AI Helpers ---
+
+async def generate_staff_recommendation(db, guest_id: int, category: str, description: str) -> str:
+    """Internal helper to generate a staff personalization note via Gemini."""
+    client = _get_client()
+    if not client:
+        return "Standard service execution recommended."
+
+    guest = db.query(Guest).filter(Guest.id == guest_id).first()
+    if not guest:
+        return "Connect warmly using the guest's name during service delivery."
+
+    prefs = json.loads(guest.preferences or "{}")
+    lang = guest.language or "en"
+    
+    prompt = f"""
+    Service Request for Guest: {guest.name}
+    Category: {category}
+    Description: {description}
+    Guest Preferences: {json.dumps(prefs)}
+    Guest Language: {lang}
+
+    As the elite Selam AI Concierge, write a ONE-SENTENCE strategic instruction for the staff member handling this request.
+    The instruction should tell them how to personalize the service or what subtle detail to include based on the guest's background/preferences to 'wow' them.
+    Keep it professional, high-performance, and actionable.
+    """
+
+    try:
+        import anyio
+        response = await anyio.to_thread.run_sync(
+            client.models.generate_content,
+            model=PRIMARY_MODEL,
+            contents=prompt,
+        )
+        return response.text.strip()
+    except Exception as e:
+        print(f"Error generating staff rec: {e}")
+        return "Connect warmly using the guest's name during service delivery."
 
 SYSTEM_INSTRUCTION = """
 You are Selam, the elite High-Performance Concierge for Kuriftu Resort & Spa. 
@@ -476,12 +519,15 @@ async def get_proactive_message(guest_id: str) -> str:
 
 
 def reset_conversation(guest_id: str):
-    """Clear in-memory session and DB history for a guest."""
+    """Clear in-memory session, DB history, and active conversation state for a guest."""
     _active_sessions.pop(guest_id, None)
     db = SessionLocal()
     try:
         gid = int(str(guest_id).replace("guest-", ""))
+        # 1. Clear message history
         db.query(ConversationHistory).filter(ConversationHistory.guest_id == gid).delete()
+        # 2. Reset orchestration state
+        db.query(ConversationState).filter(ConversationState.guest_id == gid).delete()
         db.commit()
     finally:
         db.close()

@@ -128,6 +128,8 @@ class ServiceRequest(Base):
     currency        = Column(String, default="ETB")
     exchange_rate   = Column(Float, default=1.0)
     property_location = Column(String, default="African Village")
+    staff_recommendation = Column(String, nullable=True) # AI-generated personalization note
+    scheduled_at    = Column(DateTime, nullable=True)     # Specific time/date requested by guest
     created_at      = Column(DateTime, default=datetime.utcnow)
     updated_at      = Column(DateTime, default=datetime.utcnow)
 
@@ -220,6 +222,10 @@ def init_db():
                     _add_col("service_requests", "assigned_at", "DATETIME")
                 if "assignment_reason" not in cols:
                     _add_col("service_requests", "assignment_reason", "TEXT")
+                if "staff_recommendation" not in cols:
+                    _add_col("service_requests", "staff_recommendation", "TEXT")
+                if "scheduled_at" not in cols:
+                    _add_col("service_requests", "scheduled_at", "DATETIME")
             except Exception:
                 pass
 

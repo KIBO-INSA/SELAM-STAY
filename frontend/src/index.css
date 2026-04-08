@@ -26,6 +26,10 @@
 }
 
 @layer base {
+  html, body {
+    @apply h-full overflow-hidden;
+  }
+
   body {
     @apply bg-stone-50 text-stone-900 selection:bg-amber-500/30;
     font-family: 'Inter', system-ui, sans-serif;
@@ -38,6 +42,26 @@
 }
 
 @layer components {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .chat-text-area {
+    @apply flex-1 overflow-y-auto;
+  }
+
+  .fixed-sidebar {
+    @apply flex-[0.3] flex flex-col overflow-y-auto;
+  }
+
+  .fixed-layout-container {
+    @apply h-[calc(100vh-64px)] w-full flex overflow-hidden;
+  }
+
   .glass-card {
     @apply bg-white/20 backdrop-blur-xl border border-white/30 shadow-2xl;
   }
