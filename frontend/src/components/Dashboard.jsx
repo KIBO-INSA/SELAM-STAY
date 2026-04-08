@@ -54,6 +54,22 @@ export default function Dashboard() {
       });
   };
 
+  const handleCompleteTask = async (taskId) => {
+    try {
+      await fetch(`http://localhost:8000/api/dashboard/tasks/${taskId}/complete`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...dashboardAPI.getAuthHeaders()
+        }
+      });
+      // Update local state to remove the task or mark as completed
+      setTasks(tasks.filter(t => t.id !== taskId));
+    } catch (err) {
+      console.error('Failed to complete task', err);
+    }
+  };
+
   if (loading && !data) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center p-8 bg-[#0a0a0b]">
@@ -370,9 +386,19 @@ export default function Dashboard() {
                                     <p className="text-[10px] text-gray-400 mt-1 max-w-[200px] truncate" title={t.description}>{t.description}</p>
                                   </td>
                                   <td className="py-4 pr-4 align-top">
-                                    <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${statusColor}`}>
-                                      {t.status || '—'}
-                                    </span>
+                                    <div className="flex flex-col gap-2 items-start">
+                                      <span className={`px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest whitespace-nowrap ${statusColor}`}>
+                                        {t.status || '—'}
+                                      </span>
+                                      {t.status !== 'completed' && (
+                                        <button 
+                                          onClick={() => handleCompleteTask(t.id)}
+                                          className="text-[9px] uppercase tracking-widest bg-emerald-500 hover:bg-emerald-400 text-black font-black px-3 py-1.5 rounded-lg transition-colors shadow-lg"
+                                        >
+                                          Close Task
+                                        </button>
+                                      )}
+                                    </div>
                                   </td>
                                   {user.role !== 'staff' && <td className="py-4 pr-4 text-gray-200 align-top">{staffLabel}</td>}
                                   <td className="py-4 text-gray-400 text-xs align-top">{assignedAt}</td>
